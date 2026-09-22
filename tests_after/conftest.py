@@ -20,6 +20,8 @@ from urllib.request import urlopen
 import httpx
 import pytest
 
+from tests_after.ui.browser import Browser
+
 DEFAULT_APP_URL = "http://127.0.0.1:8100"
 
 
@@ -73,6 +75,23 @@ def clean_board(api: httpx.Client) -> None:
 def unique_title() -> str:
     """A title no earlier run and no other test can have used."""
     return f"Write the report {uuid.uuid4().hex[:8]}"
+
+
+@pytest.fixture(scope="session")
+def browser() -> Iterator[Browser]:
+    """One browser per session, engine from UI_DRIVER (playwright by default, or selenium)."""
+    from tests_after.ui.browser import open_browser
+
+    instance = open_browser()
+    yield instance
+    instance.close()
+
+
+@pytest.fixture
+def board(browser: Browser, app_url: str):
+    from tests_after.ui.board import BoardPage
+
+    return BoardPage(browser, app_url)
 
 
 def free_port() -> int:
