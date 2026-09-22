@@ -1,8 +1,9 @@
 """Fixtures of the cured suite: a live app, a clean board per test, unique data.
 
-Every fixture here answers one disease of the sick suite. The app is started
-by the suite (or found already running), so no test depends on a terminal
-somebody opened; the board is reset before every test, so no test depends on
+Every fixture here answers one disease of the sick suite. The app is our own
+— started by the suite on a free port unless `APP_URL` says otherwise — so no
+test depends on a terminal somebody opened and no test shares its board with
+a stranger's; the board is reset before every test, so no test depends on
 what another one left behind; titles are unique per test, so a rerun cannot
 collide with itself.
 """
@@ -14,15 +15,12 @@ import threading
 import time
 import uuid
 from collections.abc import Iterator
-from urllib.parse import urlsplit
 from urllib.request import urlopen
 
 import httpx
 import pytest
 
 from tests_after.ui.browser import Browser
-
-DEFAULT_APP_URL = "http://127.0.0.1:8100"
 
 
 def _answers(url: str, timeout: float = 1.0) -> bool:
@@ -33,19 +31,36 @@ def _answers(url: str, timeout: float = 1.0) -> bool:
         return False
 
 
+def free_port() -> int:
+    with socket.socket() as sock:
+        sock.bind(("127.0.0.1", 0))
+        return sock.getsockname()[1]
+
+
 @pytest.fixture(scope="session")
 def app_url() -> Iterator[str]:
-    """The app under test: `APP_URL` when set, otherwise started here on port 8100."""
-    url = os.environ.get("APP_URL", DEFAULT_APP_URL).rstrip("/")
-    parts = urlsplit(url)
-    if _answers(url) or parts.hostname not in {"127.0.0.1", "localhost"}:
-        yield url
+    """The app under test.
+
+    `APP_URL` set: use it exactly as given and start nothing — CI, a Docker
+    stand, or a developer pointing the suite at an app already running.
+    `APP_URL` unset: always start our own app in-process, on a free port,
+    and yield that. Reusing "whatever already answers on a fixed port" was
+    tried and dropped — anything listening there is not necessarily ours,
+    and a board that a stranger resets in the middle of a test is exactly
+    the class of failure this suite exists to cure.
+    """
+    configured = os.environ.get("APP_URL")
+    if configured:
+        yield configured.rstrip("/")
         return
+
     import uvicorn
 
     from app.main import create_app
 
-    server = uvicorn.Server(uvicorn.Config(create_app(), host=parts.hostname, port=parts.port, log_level="warning"))
+    port = free_port()
+    url = f"http://127.0.0.1:{port}"
+    server = uvicorn.Server(uvicorn.Config(create_app(), host="127.0.0.1", port=port, log_level="warning"))
     thread = threading.Thread(target=server.run, daemon=True, name="task-board")
     thread.start()
     deadline = time.monotonic() + 15
@@ -92,9 +107,3 @@ def board(browser: Browser, app_url: str):
     from tests_after.ui.board import BoardPage
 
     return BoardPage(browser, app_url)
-
-
-def free_port() -> int:
-    with socket.socket() as sock:
-        sock.bind(("127.0.0.1", 0))
-        return sock.getsockname()[1]

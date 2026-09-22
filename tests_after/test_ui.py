@@ -34,7 +34,9 @@ def test_toggling_marks_the_task_done_and_offers_undo(board, unique_title) -> No
 def test_a_task_created_through_the_api_appears_on_the_board(board, api, unique_title) -> None:
     api.post("/api/tasks", json={"title": unique_title, "owner": "api"})
     board.open_board()
-    assert board.titles() == [unique_title]
+    assert board.titles() == [unique_title], (
+        f"the board should show the task created through the API, it shows {board.titles()}"
+    )
 
 
 def test_the_board_is_empty_when_nothing_was_created(board) -> None:
