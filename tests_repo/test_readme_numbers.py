@@ -1,4 +1,9 @@
-"""Every number in the README's before/after table is the one in measurements/latest.json."""
+"""Every number the documents state is the one in measurements/latest.json.
+
+The README's table is rendered from that file, and the per-test counts the
+diagnosis quotes ("fails in 19 of 20 runs") are read back out of it too, so a
+re-measurement that moves a number cannot leave a document behind.
+"""
 from __future__ import annotations
 
 import json
@@ -10,6 +15,9 @@ from pathlib import Path
 from tools.measure import END, START, SuiteSummary, render_table
 
 ROOT = Path(__file__).resolve().parents[1]
+
+#: `tests_before/test_api_before.py::test_create_task` … fails in 19 of 20 runs
+CITATION = re.compile(r"`tests_before/(\w+)\.py::(test_\w+)`[^`]{0,240}?fails in (\d+) of (\d+) runs")
 
 
 def _block(text: str) -> str:
@@ -31,6 +39,23 @@ def test_the_measurement_file_says_where_and_when_it_was_taken() -> None:
     assert payload["runs"] >= 20 and payload["measured_at"] and payload["platform"], payload
     after_failing_runs = payload["suites"]["after"]["failing_runs"]
     assert after_failing_runs == 0, "the cured suite is published only from a run where it never failed"
+
+
+def test_every_failure_count_the_diagnosis_cites_is_the_measured_one() -> None:
+    """The diagnosis says how often each sick test failed; the measurement says the same."""
+    payload = json.loads((ROOT / "measurements" / "latest.json").read_text(encoding="utf-8"))
+    before = payload["suites"]["before"]
+    counts, runs = before["failure_counts"], before["runs"]
+    citations = CITATION.findall((ROOT / "docs" / "diagnosis.md").read_text(encoding="utf-8"))
+    assert citations, "docs/diagnosis.md should say how often a test fails, as `…::test_x` … fails in N of M runs"
+    for module, test, fails, of in citations:
+        name = f"tests_before.{module}::{test}"
+        assert name in counts, f"docs/diagnosis.md cites {name}, which the measurement does not know"
+        assert int(of) == runs, f"docs/diagnosis.md counts {test} over {of} runs, the measurement took {runs}"
+        assert int(fails) == counts[name], (
+            f"docs/diagnosis.md says {name} fails in {fails} of {of} runs, "
+            f"measurements/latest.json says {counts[name]} — re-read the file or re-measure"
+        )
 
 
 def _live_collection_count(suite: str) -> int:
