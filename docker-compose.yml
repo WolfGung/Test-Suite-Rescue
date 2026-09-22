@@ -1,0 +1,32 @@
+name: test-suite-rescue
+
+services:
+  app:
+    build: .
+    command: ["python", "-m", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8100"]
+    ports:
+      - "127.0.0.1:8180:8100"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8100/healthz')"]
+      interval: 2s
+      timeout: 3s
+      retries: 15
+
+  tests:
+    build: .
+    depends_on:
+      app:
+        condition: service_healthy
+    # Shares the app container's network namespace so the loopback address
+    # reaches it directly. A plain "http://app:8100" hits a Chromium quirk in
+    # some builds: navigation to a bare, dot-less hostname is opportunistically
+    # upgraded to HTTPS even though the URL says http://, and the app speaks
+    # no TLS on that port, so the test run fails with ERR_SSL_PROTOCOL_ERROR
+    # before it reaches the suite. Loopback and IP literals are exempt from
+    # that upgrade.
+    network_mode: "service:app"
+    environment:
+      APP_URL: http://127.0.0.1:8100
+      UI_DRIVER: playwright
+    volumes:
+      - ./allure-results:/suite/allure-results

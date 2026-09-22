@@ -1,0 +1,107 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    - cron: "0 4 * * 1"
+  workflow_dispatch:
+    inputs:
+      runs:
+        description: "How many runs of each suite the measurement takes"
+        default: "20"
+        required: false
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12", cache: pip }
+      - run: pip install -e ".[dev]"
+      - run: ruff check app tools tests_after tests_before
+
+  after:
+    name: Cured suite on ${{ matrix.driver }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        driver: [playwright, selenium]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12", cache: pip }
+      - run: pip install -e ".[dev]"
+      - name: Install the browser for Playwright
+        if: matrix.driver == 'playwright'
+        run: playwright install --with-deps chromium
+      # Selenium needs no install step here: Google Chrome is on the runner
+      # image and Selenium Manager fetches the matching chromedriver itself.
+      - name: Run the cured suite
+        run: pytest tests_after tests_repo --alluredir=allure-results
+        env:
+          UI_DRIVER: ${{ matrix.driver }}
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: allure-results-after-${{ matrix.driver }}
+          path: allure-results
+
+  before:
+    # The sick suite, run for everyone to see. It is expected to fail some of
+    # the time and, from its second run against the same app, most of the
+    # time; the job is allowed to fail so that a red here never blocks the
+    # cured suite from being the verdict.
+    name: Sick suite (allowed to fail)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12", cache: pip }
+      - run: pip install -e ".[dev]"
+      - run: playwright install --with-deps chromium
+      - name: Start the app
+        run: |
+          nohup python -m uvicorn app.main:app --port 8100 > app.log 2>&1 &
+          for i in $(seq 1 30); do curl -fs http://127.0.0.1:8100/healthz && break; sleep 1; done
+      - name: Run the sick suite twice against the same app
+        run: |
+          pytest tests_before -q -p no:cacheprovider || true
+          pytest tests_before -q -p no:cacheprovider
+
+  measure:
+    # Twenty runs of each suite against one app, on this runner, and the
+    # table the README carries. Weekly and on request: it takes about ten
+    # minutes and its numbers are the ones a reader is asked to check.
+    name: Measure before and after
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12", cache: pip }
+      - run: pip install -e ".[dev]"
+      - run: playwright install --with-deps chromium
+      - name: Measure
+        run: python -m tools.measure --runs "${{ inputs.runs || 20 }}" --out measurements/ci-latest.json
+      - name: Compare with the committed measurement
+        run: python -m tools.compare measurements/latest.json measurements/ci-latest.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: measurements
+          path: |
+            measurements/ci-latest.json
+            measurements/runs
