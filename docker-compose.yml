@@ -14,6 +14,9 @@ services:
 
   tests:
     build: .
+    # Named here rather than left to the image's CMD, so the run writes its
+    # Allure results into the directory the volume below mounts back out.
+    command: ["pytest", "tests_after", "--alluredir=allure-results"]
     depends_on:
       app:
         condition: service_healthy
