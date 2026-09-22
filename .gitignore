@@ -1,0 +1,12 @@
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.ruff_cache/
+*.egg-info/
+allure-results*/
+allure-report/
+videos/
+# Per-run junit files the measurement tool writes; only latest.json is kept
+measurements/runs/
+.env

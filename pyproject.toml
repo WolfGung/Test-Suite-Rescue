@@ -1,0 +1,52 @@
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "test-suite-rescue"
+version = "0.1.0"
+description = "A deliberately sick test suite, its cured version, and the measured difference"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.115",
+    "uvicorn>=0.32",
+    "jinja2>=3.1",
+    "python-multipart>=0.0.20",
+    "httpx>=0.27",
+    "pytest>=8.3",
+    "playwright>=1.49",
+    "selenium>=4.25",
+    "allure-pytest>=2.13",
+]
+
+[project.optional-dependencies]
+dev = ["ruff>=0.6"]
+
+[tool.setuptools]
+packages = ["app", "tools"]
+
+[tool.setuptools.package-data]
+app = ["templates/*", "static/*"]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+addopts = "-ra --strict-markers --strict-config"
+markers = [
+    "sick: a test in tests_before that carries a named disease on purpose",
+    "api: the REST API",
+    "ui: drives a browser",
+]
+
+[tool.ruff]
+line-length = 120
+target-version = "py312"
+src = ["app", "tools", "tests_after", "tests_before"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+# tests_before is sick on purpose; its bare asserts and sleeps are the point.
+per-file-ignores = { "tests_before/*" = ["B011"] }
+
+[tool.ruff.lint.isort]
+known-first-party = ["app", "tools"]

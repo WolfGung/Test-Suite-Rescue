@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block title %}New task{% endblock %}
+{% block content %}
+<h1>New task</h1>
+<form method="post" action="/tasks" data-testid="task-form">
+  {% if error %}<p class="error" data-testid="form-error">{{ error }}</p>{% endif %}
+  <label for="title">Title</label>
+  <input id="title" name="title" type="text" value="{{ title }}" data-testid="title-input" required>
+  <label for="owner">Owner</label>
+  <input id="owner" name="owner" type="text" value="{{ owner }}" data-testid="owner-input">
+  <button type="submit" class="btn btn-primary" data-testid="create-button">Create</button>
+</form>
+{% endblock %}

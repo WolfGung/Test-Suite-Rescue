@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>{% block title %}Task board{% endblock %}</title>
+  <style>
+    body { font-family: system-ui, sans-serif; margin: 0; background: #f8fafc; color: #0f172a; }
+    header { padding: 1rem 2rem; background: #fff; border-bottom: 1px solid #e2e8f0; }
+    header a { margin-right: 1rem; }
+    main { max-width: 720px; margin: 0 auto; padding: 1.5rem; }
+    form label { display: block; margin: .75rem 0 .25rem; }
+    input { padding: .4rem; width: 100%; box-sizing: border-box; }
+    button { margin-top: .75rem; padding: .4rem .9rem; }
+    .error { color: #b91c1c; }
+    ul.task-list { list-style: none; padding: 0; }
+    ul.task-list li { display: grid; grid-template-columns: 1fr 8rem 6rem; gap: .5rem; align-items: center; padding: .5rem; border-bottom: 1px solid #e2e8f0; background: #fff; }
+    li.done .title { text-decoration: line-through; color: #64748b; }
+    .empty { color: #64748b; }
+  </style>
+</head>
+<body>
+<header><a href="/">New task</a><a href="/board">Board</a></header>
+<main>{% block content %}{% endblock %}</main>
+</body>
+</html>
