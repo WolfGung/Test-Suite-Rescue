@@ -1,5 +1,5 @@
 {
-  "measured_at": "2026-09-22T22:26:50+00:00",
+  "measured_at": "2026-09-22T22:41:56+00:00",
   "python": "3.12.14",
   "platform": "Linux-7.0.0-31-generic-x86_64-with-glibc2.43",
   "render_delay_ms": [
@@ -12,10 +12,10 @@
       "suite": "before",
       "runs": 20,
       "tests_per_run": 10,
-      "total_seconds": 94.8,
-      "mean_test_seconds": 0.47,
-      "failing_runs": 19,
-      "failing_runs_share": 0.95,
+      "total_seconds": 151.8,
+      "mean_test_seconds": 0.76,
+      "failing_runs": 20,
+      "failing_runs_share": 1.0,
       "always_failing": [],
       "flaky": [
         "tests_before.test_api_before::test_board_has_exactly_one_task",
@@ -29,9 +29,9 @@
     "after": {
       "suite": "after",
       "runs": 20,
-      "tests_per_run": 23,
-      "total_seconds": 128.8,
-      "mean_test_seconds": 0.28,
+      "tests_per_run": 13,
+      "total_seconds": 125.4,
+      "mean_test_seconds": 0.48,
       "failing_runs": 0,
       "failing_runs_share": 0.0,
       "always_failing": [],

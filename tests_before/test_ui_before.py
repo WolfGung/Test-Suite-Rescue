@@ -22,7 +22,7 @@ def test_form_creates_task(page) -> None:
     page.locator("xpath=//form//input[1]").fill(FORM_TITLE)
     page.locator("xpath=//form//input[2]").fill("pavel")
     page.locator("text=Create").click()
-    time.sleep(1.0)
+    time.sleep(2.0)
     assert FORM_TITLE in page.content()
 
 
@@ -45,7 +45,7 @@ def test_toggle_marks_done(page) -> None:
     page.goto(f"{BASE_URL}/board")
     time.sleep(0.6)
     page.locator("text=Done").first.click()
-    time.sleep(0.3)
+    time.sleep(2.0)
     assert "Undo" in page.content()
 
 

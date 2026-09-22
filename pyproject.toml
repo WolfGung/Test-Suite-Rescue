@@ -41,7 +41,7 @@ markers = [
 [tool.ruff]
 line-length = 120
 target-version = "py312"
-src = ["app", "tools", "tests_after", "tests_before"]
+src = ["app", "tools", "tests_after", "tests_before", "tests_repo"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B"]

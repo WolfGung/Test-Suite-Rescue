@@ -4,9 +4,10 @@ install:
 	python3 -m pip install -e ".[dev]"
 	python3 -m playwright install chromium
 
-# The cured suite, on the default driver (Playwright). Starts the app itself.
+# The cured suite and the repository's own checks, on the default driver
+# (Playwright). Starts the app itself.
 test:
-	pytest tests_after
+	pytest tests_after tests_repo
 
 # The same cured browser checks on Selenium.
 test-selenium:
@@ -24,4 +25,4 @@ measure:
 	python -m tools.measure --runs 20 --update-readme
 
 lint:
-	ruff check app tools tests_after tests_before
+	ruff check app tools tests_after tests_before tests_repo
