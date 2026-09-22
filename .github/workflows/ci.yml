@@ -95,7 +95,11 @@ jobs:
       - run: pip install -e ".[dev]"
       - run: playwright install --with-deps chromium
       - name: Measure
-        run: python -m tools.measure --runs "${{ inputs.runs || 20 }}" --out measurements/ci-latest.json
+        # --taken-on ends up in the artifact and, when that artifact replaces
+        # measurements/latest.json, in the README's provenance line.
+        run: |
+          python -m tools.measure --runs "${{ inputs.runs || 20 }}" \
+            --out measurements/ci-latest.json --taken-on github-runner
       - name: Compare with the committed measurement
         run: python -m tools.compare measurements/latest.json measurements/ci-latest.json
       - uses: actions/upload-artifact@v4

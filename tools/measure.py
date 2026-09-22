@@ -12,6 +12,18 @@ README between the measurements markers. Nothing in the README is typed by
 hand. With --summarise-only the summary is rebuilt from the junit files that
 are already under measurements/runs/, so the same runs can be counted a new
 way without measuring again.
+
+Taking over someone else's numbers is two commands and no arithmetic. Download
+the weekly `measure` job's artifact and then:
+
+    cp ci-latest.json measurements/latest.json
+    python3 -m tools.measure --render measurements/latest.json --update-readme
+
+--render reads that one file, writes the README block from it — the table and
+the provenance line naming the machine the numbers were taken on — and prints
+the per-test sentences docs/diagnosis.md carries ("… fails in 19 of 20 runs")
+in the exact form the citation pin reads, ready to paste. It reads no junit
+file and runs no test.
 """
 from __future__ import annotations
 
@@ -30,9 +42,14 @@ from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from urllib.request import urlopen
 
+# The tool may know the application it measures; it must not import either
+# suite, or the measurement would depend on the thing being measured.
+from app.main import RENDER_DELAY_DEFAULT_MS
+
 ROOT = Path(__file__).resolve().parents[1]
 START = "<!-- measurements:start -->"
 END = "<!-- measurements:end -->"
+DEFAULT_TAKEN_ON = "developer-machine"
 
 
 @dataclass(frozen=True)
@@ -84,7 +101,24 @@ def parse_junit(path: Path) -> RunResult:
     return RunResult(tests, failures, errors, round(seconds, 3), failed, names)
 
 
+#: Below this many runs, "passed once and failed ever after" is indistinguishable
+#: from luck — at four runs a merely flaky test reaches that shape about once in
+#: sixteen — so the group is only claimed from five runs on.
+MIN_RUNS_FOR_BROKEN_AFTER_FIRST = 5
+
+
 def summarise(suite: str, runs: list[RunResult]) -> SuiteSummary:
+    """Count the runs into the four groups the README's table names.
+
+    A test that passes the first run and fails every run after it is not flaky
+    and not simply broken: the first run broke it for all the runs that follow,
+    by leaving a task, a title or an id behind. It is the signature of state
+    nobody cleans up, and it deserves its own group — but only when there are
+    enough runs for the shape to mean anything. Under
+    MIN_RUNS_FOR_BROKEN_AFTER_FIRST runs a flaky test that happened to pass
+    first and fail afterwards has the same shape, so those tests stay in
+    `flaky`, where an unexplained failure belongs until it is explained.
+    """
     if not runs:
         raise ValueError(f"no runs to summarise for {suite}")
     total = sum(run.seconds for run in runs)
@@ -92,14 +126,12 @@ def summarise(suite: str, runs: list[RunResult]) -> SuiteSummary:
     failing_runs = sum(1 for run in runs if run.failed)
     names = sorted(set().union(*(run.names for run in runs)))
     counts = {name: sum(1 for run in runs if name in run.failed_names) for name in names}
-    # A test that passes the first run and fails every run after it is not
-    # flaky and not simply broken: the first run broke it for all the runs
-    # that follow, by leaving a task, a title or an id behind. It is the
-    # signature of state nobody cleans up, and it deserves its own group.
     broken_after_first = [
         name
         for name in names
-        if len(runs) > 1 and counts[name] == len(runs) - 1 and name not in runs[0].failed_names
+        if len(runs) >= MIN_RUNS_FOR_BROKEN_AFTER_FIRST
+        and counts[name] == len(runs) - 1
+        and name not in runs[0].failed_names
     ]
     return SuiteSummary(
         suite=suite,
@@ -138,14 +170,44 @@ def render_table(before: SuiteSummary, after: SuiteSummary) -> str:
     return "\n".join(lines) + "\n"
 
 
-def update_readme(readme: Path, table: str) -> None:
+def render_block(payload: dict) -> str:
+    """The whole README block: the table, and one line saying where it came from.
+
+    The provenance line is generated rather than typed, so the delay range and
+    the machine the numbers were taken on are pinned by the same check that
+    pins the table.
+    """
+    suites = payload["suites"]
+    table = render_table(SuiteSummary(**suites["before"]), SuiteSummary(**suites["after"]))
+    low, high = payload["render_delay_ms"]
+    provenance = (
+        f"Measured on {payload['taken_on']} — {payload['platform']}, Python {payload['python']}, "
+        f"{payload['measured_at']}; render delay {low}–{high} ms; {payload['runs']} runs of each suite."
+    )
+    return f"{table}\n{provenance}\n"
+
+
+def render_citations(payload: dict) -> list[str]:
+    """One sentence per sick test, in the exact form docs/diagnosis.md's pin reads."""
+    before = payload["suites"]["before"]
+    lines = []
+    for name, count in sorted(before["failure_counts"].items()):
+        module, test = name.split("::")
+        lines.append(f"`{module.replace('.', '/')}.py::{test}` fails in {count} of {before['runs']} runs")
+    return lines
+
+
+def update_readme(readme: Path, block: str) -> None:
     text = readme.read_text(encoding="utf-8")
     pattern = re.compile(re.escape(START) + r".*?" + re.escape(END), re.S)
     if not pattern.search(text):
         raise ValueError(f"{readme} has no {START} … {END} block to update")
-    readme.write_text(pattern.sub(lambda _: f"{START}\n{table}{END}", text), encoding="utf-8")
+    readme.write_text(pattern.sub(lambda _: f"{START}\n{block}{END}", text), encoding="utf-8")
 
 
+# free_port and _answers repeat tests_after/conftest.py on purpose: the tool
+# that measures a suite must not import it, or a broken suite could take the
+# measurement down with it.
 def _free_port() -> int:
     with socket.socket() as sock:
         sock.bind(("127.0.0.1", 0))
@@ -160,9 +222,18 @@ def _answers(url: str) -> bool:
         return False
 
 
+def _render_delay_ms() -> tuple[int, int]:
+    """The delay range the app will draw from, so the measurement can record it."""
+    low, high = RENDER_DELAY_DEFAULT_MS
+    return (
+        int(os.environ.get("RENDER_DELAY_MIN_MS", low)),
+        int(os.environ.get("RENDER_DELAY_MAX_MS", high)),
+    )
+
+
 def _start_app(port: int) -> subprocess.Popen:
-    env = {**os.environ, "RENDER_DELAY_MIN_MS": os.environ.get("RENDER_DELAY_MIN_MS", "100"),
-           "RENDER_DELAY_MAX_MS": os.environ.get("RENDER_DELAY_MAX_MS", "700")}
+    low, high = _render_delay_ms()
+    env = {**os.environ, "RENDER_DELAY_MIN_MS": str(low), "RENDER_DELAY_MAX_MS": str(high)}
     process = subprocess.Popen(
         [sys.executable, "-m", "uvicorn", "app.main:app", "--port", str(port), "--log-level", "warning"],
         cwd=ROOT, env=env,
@@ -224,8 +295,31 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="rebuild the summary from measurements/runs/ instead of running the suites again",
     )
+    parser.add_argument(
+        "--render",
+        type=Path,
+        default=None,
+        metavar="FILE",
+        help="render the README block and the diagnosis's sentences from an existing measurement file; "
+             "reads no junit file and runs nothing",
+    )
+    parser.add_argument(
+        "--taken-on",
+        default=None,
+        metavar="TEXT",
+        help=f"where this measurement was taken (default: {DEFAULT_TAKEN_ON}); the CI job passes github-runner",
+    )
     args = parser.parse_args(argv)
     suites = ["before", "after"] if args.suite == "both" else [args.suite]
+
+    if args.render is not None:
+        payload = json.loads(args.render.read_text(encoding="utf-8"))
+        block = render_block(payload)
+        print(block)
+        print("\n".join(render_citations(payload)))
+        if args.update_readme:
+            update_readme(ROOT / "README.md", block)
+        return 0
 
     if args.summarise_only:
         if not args.out.exists():
@@ -233,6 +327,10 @@ def main(argv: list[str] | None = None) -> int:
         payload = json.loads(args.out.read_text(encoding="utf-8"))
         summaries = _summarise_runs(suites, ROOT / "measurements" / "runs")
         payload["suites"] = {**payload.get("suites", {}), **{n: asdict(s) for n, s in summaries.items()}}
+        # Counting the same runs a new way does not move them to another
+        # machine: keep the provenance the measurement was taken with unless
+        # this call states a different one.
+        payload["taken_on"] = args.taken_on or payload.get("taken_on", DEFAULT_TAKEN_ON)
         return _write(payload, args)
 
     process = None
@@ -252,13 +350,11 @@ def main(argv: list[str] | None = None) -> int:
             process.wait(timeout=10)
 
     payload = {
+        "taken_on": args.taken_on or DEFAULT_TAKEN_ON,
         "measured_at": dt.datetime.now(dt.UTC).isoformat(timespec="seconds"),
         "python": platform.python_version(),
         "platform": platform.platform(),
-        "render_delay_ms": [
-            int(os.environ.get("RENDER_DELAY_MIN_MS", "100")),
-            int(os.environ.get("RENDER_DELAY_MAX_MS", "700")),
-        ],
+        "render_delay_ms": list(_render_delay_ms()),
         "runs": args.runs,
         "suites": {name: asdict(summary) for name, summary in summaries.items()},
     }
@@ -266,15 +362,15 @@ def main(argv: list[str] | None = None) -> int:
 
 
 def _write(payload: dict, args: argparse.Namespace) -> int:
-    """Write the measurement file and, when both suites are in it, the README table."""
+    """Write the measurement file and, when both suites are in it, the README block."""
     args.out.parent.mkdir(parents=True, exist_ok=True)
     args.out.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
     suites = payload.get("suites", {})
     if {"before", "after"} <= set(suites):
-        table = render_table(SuiteSummary(**suites["before"]), SuiteSummary(**suites["after"]))
-        print(table)
+        block = render_block(payload)
+        print(block)
         if args.update_readme:
-            update_readme(ROOT / "README.md", table)
+            update_readme(ROOT / "README.md", block)
     return 0
 
 

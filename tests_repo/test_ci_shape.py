@@ -22,11 +22,20 @@ def test_the_sick_suite_is_allowed_to_fail_but_still_runs() -> None:
 
 
 def test_the_measurement_job_is_scheduled_and_manual() -> None:
-    assert "schedule" in WORKFLOW[True] if True in WORKFLOW else "schedule" in WORKFLOW["on"]
+    # YAML reads the key `on:` as the boolean True, so the triggers live under
+    # WORKFLOW[True] in every parser that follows the spec.
+    triggers = WORKFLOW[True] if True in WORKFLOW else WORKFLOW["on"]
+    assert "schedule" in triggers, triggers
     assert "measure" in JOBS and any("tools.measure" in step.get("run", "") for step in JOBS["measure"]["steps"])
     condition = JOBS["measure"]["if"]
     assert "schedule" in condition and "workflow_dispatch" in condition, condition
     assert "push" not in condition, condition
+
+
+def test_the_measurement_job_says_the_numbers_came_from_the_runner() -> None:
+    """The README promises a provenance line reading `github-runner`; the job is what writes it."""
+    step = next(step for step in JOBS["measure"]["steps"] if "tools.measure" in step.get("run", ""))
+    assert "--taken-on github-runner" in step["run"], step["run"]
 
 
 def test_the_lint_job_covers_every_tests_directory_that_exists() -> None:

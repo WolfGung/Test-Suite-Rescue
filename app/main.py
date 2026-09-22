@@ -25,6 +25,11 @@ from app.store import DuplicateTitle, TaskStore
 HERE = Path(__file__).resolve().parent
 templates = Jinja2Templates(directory=str(HERE / "templates"))
 
+#: The render delay range, in milliseconds, when the environment names none.
+#: One definition for the whole repository: `tools/measure.py` imports it to
+#: start the app the same way and to record the range in the measurement.
+RENDER_DELAY_DEFAULT_MS = (100, 700)
+
 
 class TaskIn(BaseModel):
     title: str
@@ -32,8 +37,9 @@ class TaskIn(BaseModel):
 
 
 def _render_delay_ms() -> int:
-    low = int(os.environ.get("RENDER_DELAY_MIN_MS", "100"))
-    high = int(os.environ.get("RENDER_DELAY_MAX_MS", "700"))
+    default_low, default_high = RENDER_DELAY_DEFAULT_MS
+    low = int(os.environ.get("RENDER_DELAY_MIN_MS", default_low))
+    high = int(os.environ.get("RENDER_DELAY_MAX_MS", default_high))
     return random.randint(min(low, high), max(low, high))
 
 
