@@ -1,0 +1,41 @@
+{
+  "measured_at": "2026-09-22T22:26:50+00:00",
+  "python": "3.12.14",
+  "platform": "Linux-7.0.0-31-generic-x86_64-with-glibc2.43",
+  "render_delay_ms": [
+    100,
+    700
+  ],
+  "runs": 20,
+  "suites": {
+    "before": {
+      "suite": "before",
+      "runs": 20,
+      "tests_per_run": 10,
+      "total_seconds": 94.8,
+      "mean_test_seconds": 0.47,
+      "failing_runs": 19,
+      "failing_runs_share": 0.95,
+      "always_failing": [],
+      "flaky": [
+        "tests_before.test_api_before::test_board_has_exactly_one_task",
+        "tests_before.test_api_before::test_create_task",
+        "tests_before.test_api_before::test_list_contains_created_task",
+        "tests_before.test_api_before::test_toggle_marks_done",
+        "tests_before.test_ui_before::test_board_lists_the_task",
+        "tests_before.test_ui_before::test_nothing_else_on_the_board"
+      ]
+    },
+    "after": {
+      "suite": "after",
+      "runs": 20,
+      "tests_per_run": 23,
+      "total_seconds": 128.8,
+      "mean_test_seconds": 0.28,
+      "failing_runs": 0,
+      "failing_runs_share": 0.0,
+      "always_failing": [],
+      "flaky": []
+    }
+  }
+}
