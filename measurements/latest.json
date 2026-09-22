@@ -1,5 +1,5 @@
 {
-  "measured_at": "2026-09-22T22:41:56+00:00",
+  "measured_at": "2026-09-22T22:59:33+00:00",
   "python": "3.12.14",
   "platform": "Linux-7.0.0-31-generic-x86_64-with-glibc2.43",
   "render_delay_ms": [
@@ -12,30 +12,60 @@
       "suite": "before",
       "runs": 20,
       "tests_per_run": 10,
-      "total_seconds": 151.8,
-      "mean_test_seconds": 0.76,
-      "failing_runs": 20,
-      "failing_runs_share": 1.0,
+      "total_seconds": 156.7,
+      "mean_test_seconds": 0.78,
+      "failing_runs": 19,
+      "failing_runs_share": 0.95,
       "always_failing": [],
-      "flaky": [
+      "broken_after_first_run": [
         "tests_before.test_api_before::test_board_has_exactly_one_task",
         "tests_before.test_api_before::test_create_task",
         "tests_before.test_api_before::test_list_contains_created_task",
         "tests_before.test_api_before::test_toggle_marks_done",
-        "tests_before.test_ui_before::test_board_lists_the_task",
         "tests_before.test_ui_before::test_nothing_else_on_the_board"
-      ]
+      ],
+      "flaky": [
+        "tests_before.test_ui_before::test_board_lists_the_task"
+      ],
+      "failure_counts": {
+        "tests_before.test_api_before::test_board_has_exactly_one_task": 19,
+        "tests_before.test_api_before::test_create_task": 19,
+        "tests_before.test_api_before::test_health": 0,
+        "tests_before.test_api_before::test_list_contains_created_task": 19,
+        "tests_before.test_api_before::test_toggle_marks_done": 19,
+        "tests_before.test_ui_before::test_board_lists_the_task": 4,
+        "tests_before.test_ui_before::test_board_shows_owner_in_second_column": 0,
+        "tests_before.test_ui_before::test_form_creates_task": 0,
+        "tests_before.test_ui_before::test_nothing_else_on_the_board": 19,
+        "tests_before.test_ui_before::test_toggle_marks_done": 0
+      }
     },
     "after": {
       "suite": "after",
       "runs": 20,
       "tests_per_run": 13,
-      "total_seconds": 125.4,
-      "mean_test_seconds": 0.48,
+      "total_seconds": 122.9,
+      "mean_test_seconds": 0.47,
       "failing_runs": 0,
       "failing_runs_share": 0.0,
       "always_failing": [],
-      "flaky": []
+      "broken_after_first_run": [],
+      "flaky": [],
+      "failure_counts": {
+        "tests_after.test_api::test_a_duplicate_title_is_refused_with_409": 0,
+        "tests_after.test_api::test_a_missing_task_answers_404": 0,
+        "tests_after.test_api::test_a_task_can_be_created": 0,
+        "tests_after.test_api::test_deleting_removes_the_task": 0,
+        "tests_after.test_api::test_the_form_creates_a_task_and_lands_on_the_board": 0,
+        "tests_after.test_api::test_the_list_holds_exactly_what_this_test_created": 0,
+        "tests_after.test_api::test_toggling_marks_a_task_done_and_back": 0,
+        "tests_after.test_ui::test_a_duplicate_title_is_refused_on_the_form": 0,
+        "tests_after.test_ui::test_a_task_created_through_the_api_appears_on_the_board": 0,
+        "tests_after.test_ui::test_the_board_is_empty_when_nothing_was_created": 0,
+        "tests_after.test_ui::test_the_board_names_the_owner_next_to_the_title": 0,
+        "tests_after.test_ui::test_the_form_creates_a_task_that_the_board_then_shows": 0,
+        "tests_after.test_ui::test_toggling_marks_the_task_done_and_offers_undo": 0
+      }
     }
   }
 }

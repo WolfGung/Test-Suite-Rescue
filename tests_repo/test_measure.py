@@ -37,6 +37,8 @@ def test_summary_tells_flaky_from_always_failing() -> None:
     assert summary.total_seconds == 12.0 and summary.mean_test_seconds == 1.0
     assert summary.failing_runs == 3 and summary.failing_runs_share == 0.75
     assert summary.always_failing == [] and summary.flaky == ["m::b", "m::c"]
+    assert summary.broken_after_first_run == []
+    assert summary.failure_counts == {"m::a": 0, "m::b": 3, "m::c": 1}
 
 
 def test_a_test_that_fails_every_run_is_not_flaky_it_is_broken() -> None:
@@ -44,6 +46,29 @@ def test_a_test_that_fails_every_run_is_not_flaky_it_is_broken() -> None:
     runs = [RunResult(1, 1, 0, 1.0, {"m::a"}, names)] * 3
     summary = summarise("before", runs)
     assert summary.always_failing == ["m::a"] and summary.flaky == []
+    assert summary.broken_after_first_run == []
+
+
+def test_a_test_the_first_run_breaks_for_every_later_run_is_its_own_group() -> None:
+    """Passing once and failing ever after is state left behind, not luck."""
+    names = {"m::a", "m::b"}
+    runs = [RunResult(2, 0, 0, 1.0, set(), names)] + [RunResult(2, 1, 0, 1.0, {"m::a"}, names)] * 3
+    summary = summarise("before", runs)
+    assert summary.broken_after_first_run == ["m::a"]
+    assert summary.flaky == [], "a test the first run broke is not flaky"
+    assert summary.always_failing == [], "it passed once, so it does not fail every run"
+    assert summary.failure_counts == {"m::a": 3, "m::b": 0}
+
+
+def test_the_table_counts_the_group_the_first_run_breaks_between_the_other_two() -> None:
+    names = {"m::a"}
+    runs = [RunResult(1, 0, 0, 1.0, set(), names)] + [RunResult(1, 1, 0, 1.0, {"m::a"}, names)] * 3
+    before = summarise("before", runs)
+    after = summarise("after", [RunResult(1, 0, 0, 0.5, set(), names)] * 4)
+    table = render_table(before, after)
+    assert "| Tests that fail every run after the first | 1 | 0 |" in table
+    assert table.index("| Tests that fail every run |") < table.index("| Tests that fail every run after the first |")
+    assert table.index("| Tests that fail every run after the first |") < table.index("(flaky)")
 
 
 def test_the_table_states_both_suites_side_by_side() -> None:

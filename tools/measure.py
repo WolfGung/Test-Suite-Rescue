@@ -9,7 +9,9 @@ once before each suite's series, so the two suites start from the same state.
 Every run writes a junit file under measurements/runs/; the summary of all of
 them goes to measurements/latest.json and, with --update-readme, into the
 README between the measurements markers. Nothing in the README is typed by
-hand.
+hand. With --summarise-only the summary is rebuilt from the junit files that
+are already under measurements/runs/, so the same runs can be counted a new
+way without measuring again.
 """
 from __future__ import annotations
 
@@ -57,7 +59,9 @@ class SuiteSummary:
     failing_runs: int
     failing_runs_share: float
     always_failing: list[str]
+    broken_after_first_run: list[str]
     flaky: list[str]
+    failure_counts: dict[str, int]
 
 
 def parse_junit(path: Path) -> RunResult:
@@ -88,6 +92,15 @@ def summarise(suite: str, runs: list[RunResult]) -> SuiteSummary:
     failing_runs = sum(1 for run in runs if run.failed)
     names = sorted(set().union(*(run.names for run in runs)))
     counts = {name: sum(1 for run in runs if name in run.failed_names) for name in names}
+    # A test that passes the first run and fails every run after it is not
+    # flaky and not simply broken: the first run broke it for all the runs
+    # that follow, by leaving a task, a title or an id behind. It is the
+    # signature of state nobody cleans up, and it deserves its own group.
+    broken_after_first = [
+        name
+        for name in names
+        if len(runs) > 1 and counts[name] == len(runs) - 1 and name not in runs[0].failed_names
+    ]
     return SuiteSummary(
         suite=suite,
         runs=len(runs),
@@ -97,7 +110,9 @@ def summarise(suite: str, runs: list[RunResult]) -> SuiteSummary:
         failing_runs=failing_runs,
         failing_runs_share=round(failing_runs / len(runs), 2),
         always_failing=[name for name in names if counts[name] == len(runs)],
-        flaky=[name for name in names if 0 < counts[name] < len(runs)],
+        broken_after_first_run=broken_after_first,
+        flaky=[name for name in names if 0 < counts[name] < len(runs) and name not in broken_after_first],
+        failure_counts=counts,
     )
 
 
@@ -111,6 +126,11 @@ def render_table(before: SuiteSummary, after: SuiteSummary) -> str:
         ("Mean time per test", f"{before.mean_test_seconds} s", f"{after.mean_test_seconds} s"),
         ("Runs with at least one failure", share(before), share(after)),
         ("Tests that fail every run", str(len(before.always_failing)), str(len(after.always_failing))),
+        (
+            "Tests that fail every run after the first",
+            str(len(before.broken_after_first_run)),
+            str(len(after.broken_after_first_run)),
+        ),
         ("Tests that fail some runs (flaky)", str(len(before.flaky)), str(len(after.flaky))),
     ]
     lines = ["| Measure | Before | After |", "| --- | --- | --- |"]
@@ -180,6 +200,18 @@ def _run_suite(suite: str, runs: int, app_url: str, out_dir: Path) -> list[RunRe
     return results
 
 
+def _summarise_runs(suites: list[str], runs_dir: Path) -> dict[str, SuiteSummary]:
+    """Read the junit files already on disk — no app, no pytest, no new runs."""
+    summaries: dict[str, SuiteSummary] = {}
+    for suite in suites:
+        files = sorted(runs_dir.glob(f"{suite}-*.xml"))
+        if not files:
+            raise SystemExit(f"no junit files for tests_{suite} under {runs_dir}; run a measurement first")
+        summaries[suite] = summarise(suite, [parse_junit(path) for path in files])
+        print(f"{suite}: {len(files)} runs read from {runs_dir}")
+    return summaries
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--runs", type=int, default=20)
@@ -187,7 +219,21 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--app-url", default=None, help="use a running app instead of starting one")
     parser.add_argument("--out", type=Path, default=ROOT / "measurements" / "latest.json")
     parser.add_argument("--update-readme", action="store_true")
+    parser.add_argument(
+        "--summarise-only",
+        action="store_true",
+        help="rebuild the summary from measurements/runs/ instead of running the suites again",
+    )
     args = parser.parse_args(argv)
+    suites = ["before", "after"] if args.suite == "both" else [args.suite]
+
+    if args.summarise_only:
+        if not args.out.exists():
+            raise SystemExit(f"{args.out} does not exist; --summarise-only rebuilds an existing measurement")
+        payload = json.loads(args.out.read_text(encoding="utf-8"))
+        summaries = _summarise_runs(suites, ROOT / "measurements" / "runs")
+        payload["suites"] = {**payload.get("suites", {}), **{n: asdict(s) for n, s in summaries.items()}}
+        return _write(payload, args)
 
     process = None
     app_url = args.app_url
@@ -196,7 +242,6 @@ def main(argv: list[str] | None = None) -> int:
         process = _start_app(port)
         app_url = f"http://127.0.0.1:{port}"
     try:
-        suites = ["before", "after"] if args.suite == "both" else [args.suite]
         summaries: dict[str, SuiteSummary] = {}
         for suite in suites:
             _reset(app_url)  # the same starting state for each suite; never between runs
@@ -217,10 +262,16 @@ def main(argv: list[str] | None = None) -> int:
         "runs": args.runs,
         "suites": {name: asdict(summary) for name, summary in summaries.items()},
     }
+    return _write(payload, args)
+
+
+def _write(payload: dict, args: argparse.Namespace) -> int:
+    """Write the measurement file and, when both suites are in it, the README table."""
     args.out.parent.mkdir(parents=True, exist_ok=True)
     args.out.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
-    if len(summaries) == 2:
-        table = render_table(summaries["before"], summaries["after"])
+    suites = payload.get("suites", {})
+    if {"before", "after"} <= set(suites):
+        table = render_table(SuiteSummary(**suites["before"]), SuiteSummary(**suites["after"]))
         print(table)
         if args.update_readme:
             update_readme(ROOT / "README.md", table)
