@@ -45,8 +45,9 @@ src = ["app", "tools", "tests_after", "tests_before"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B"]
-# tests_before is sick on purpose; its bare asserts and sleeps are the point.
-per-file-ignores = { "tests_before/*" = ["B011"] }
+# tests_before is sick on purpose; its bare asserts and sleeps are the point,
+# and its docstrings name every disease verbatim even where that runs long.
+per-file-ignores = { "tests_before/*" = ["B011", "E501"] }
 
 [tool.ruff.lint.isort]
 known-first-party = ["app", "tools"]
