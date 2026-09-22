@@ -1,8 +1,10 @@
 """Every number the documents state is the one in measurements/latest.json.
 
-The README's table is rendered from that file, and the per-test counts the
-diagnosis quotes ("fails in 19 of 20 runs") are read back out of it too, so a
-re-measurement that moves a number cannot leave a document behind.
+The README's block — the table and the line saying on what machine, with what
+delay range and when the numbers were taken — is rendered from that file, and
+the per-test counts the diagnosis quotes ("fails in 19 of 20 runs") are read
+back out of it too, so a re-measurement that moves a number cannot leave a
+document behind.
 """
 from __future__ import annotations
 
@@ -12,12 +14,19 @@ import subprocess
 import sys
 from pathlib import Path
 
-from tools.measure import END, START, SuiteSummary, render_table
+from tools.measure import END, START, render_block
 
 ROOT = Path(__file__).resolve().parents[1]
 
 #: `tests_before/test_api_before.py::test_create_task` … fails in 19 of 20 runs
 CITATION = re.compile(r"`tests_before/(\w+)\.py::(test_\w+)`[^`]{0,240}?fails in (\d+) of (\d+) runs")
+#: "Four of the sick suite's tests never fail at all" — the number is checked
+NEVER_FAILS = re.compile(r"(\w+) of the sick suite's tests never fail at all")
+WORDS = {"one": 1, "two": 2, "three": 3, "four": 4, "five": 5, "six": 6, "seven": 7, "eight": 8, "nine": 9, "ten": 10}
+
+
+def _payload() -> dict:
+    return json.loads((ROOT / "measurements" / "latest.json").read_text(encoding="utf-8"))
 
 
 def _block(text: str) -> str:
@@ -25,26 +34,27 @@ def _block(text: str) -> str:
     return text[start:end].strip("\n") + "\n"
 
 
-def test_the_table_in_the_readme_is_the_one_rendered_from_the_measurement_file() -> None:
-    payload = json.loads((ROOT / "measurements" / "latest.json").read_text(encoding="utf-8"))
-    before = SuiteSummary(**payload["suites"]["before"])
-    after = SuiteSummary(**payload["suites"]["after"])
-    expected = render_table(before, after)
+def test_the_block_in_the_readme_is_the_one_rendered_from_the_measurement_file() -> None:
+    """Table and provenance line both: the delay range and the machine are pinned too."""
+    expected = render_block(_payload())
     actual = _block((ROOT / "README.md").read_text(encoding="utf-8"))
-    assert actual == expected, "README's measurement table differs from measurements/latest.json — run `make measure`"
+    assert actual == expected, (
+        "README's measurement block differs from measurements/latest.json — run `make measure`, or "
+        "`python3 -m tools.measure --render measurements/latest.json --update-readme`"
+    )
 
 
 def test_the_measurement_file_says_where_and_when_it_was_taken() -> None:
-    payload = json.loads((ROOT / "measurements" / "latest.json").read_text(encoding="utf-8"))
+    payload = _payload()
     assert payload["runs"] >= 20 and payload["measured_at"] and payload["platform"], payload
+    assert payload.get("taken_on"), "a measurement must name the machine it was taken on, so the README can say it"
     after_failing_runs = payload["suites"]["after"]["failing_runs"]
     assert after_failing_runs == 0, "the cured suite is published only from a run where it never failed"
 
 
 def test_every_failure_count_the_diagnosis_cites_is_the_measured_one() -> None:
     """The diagnosis says how often each sick test failed; the measurement says the same."""
-    payload = json.loads((ROOT / "measurements" / "latest.json").read_text(encoding="utf-8"))
-    before = payload["suites"]["before"]
+    before = _payload()["suites"]["before"]
     counts, runs = before["failure_counts"], before["runs"]
     citations = CITATION.findall((ROOT / "docs" / "diagnosis.md").read_text(encoding="utf-8"))
     assert citations, "docs/diagnosis.md should say how often a test fails, as `…::test_x` … fails in N of M runs"
@@ -56,6 +66,33 @@ def test_every_failure_count_the_diagnosis_cites_is_the_measured_one() -> None:
             f"docs/diagnosis.md says {name} fails in {fails} of {of} runs, "
             f"measurements/latest.json says {counts[name]} — re-read the file or re-measure"
         )
+
+
+def test_the_diagnosis_cites_every_sick_test_and_no_other() -> None:
+    """A disease nobody quoted a number for is a disease nobody proved."""
+    counts = _payload()["suites"]["before"]["failure_counts"]
+    citations = CITATION.findall((ROOT / "docs" / "diagnosis.md").read_text(encoding="utf-8"))
+    cited = [f"tests_before.{module}::{test}" for module, test, _, _ in citations]
+    assert set(cited) == set(counts), (
+        f"cited but not measured: {sorted(set(cited) - set(counts))}; "
+        f"measured but never cited: {sorted(set(counts) - set(cited))}"
+    )
+    twice = sorted({name for name in cited if cited.count(name) > 1})
+    assert not twice, f"docs/diagnosis.md quotes a failure count twice for {twice}; one citation per test"
+
+
+def test_the_count_of_tests_that_never_fail_is_the_measured_one() -> None:
+    """The sentence that closes the diagnosis states a number; the measurement decides it."""
+    counts = _payload()["suites"]["before"]["failure_counts"]
+    never = sorted(name for name, count in counts.items() if count == 0)
+    doc = (ROOT / "docs" / "diagnosis.md").read_text(encoding="utf-8")
+    match = NEVER_FAILS.search(doc)
+    assert match, "docs/diagnosis.md should say how many sick tests never fail: '<N> of the sick suite's tests never…'"
+    stated = WORDS.get(match.group(1).lower())
+    assert stated is not None, f"the count in {match.group(0)!r} should be a word from one to ten"
+    assert stated == len(never), (
+        f"docs/diagnosis.md says {match.group(1)} tests never fail; the measurement has {len(never)}: {never}"
+    )
 
 
 def _live_collection_count(suite: str) -> int:
