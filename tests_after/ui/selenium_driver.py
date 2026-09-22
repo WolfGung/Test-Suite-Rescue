@@ -46,6 +46,9 @@ class SeleniumBrowser:
     def texts(self, test_id: str) -> list[str]:
         return [element.text.strip() for element in self._driver.find_elements(By.CSS_SELECTOR, selector(test_id))]
 
+    def attribute(self, test_id: str, name: str) -> str:
+        return self._find(test_id)[0].get_attribute(name) or ""
+
     def wait_for_attribute(self, test_id: str, name: str, value: str, timeout_s: float = 10.0) -> None:
         WebDriverWait(self._driver, timeout_s).until(
             lambda d: any(e.get_attribute(name) == value for e in d.find_elements(By.CSS_SELECTOR, selector(test_id)))

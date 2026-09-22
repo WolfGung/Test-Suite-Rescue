@@ -1,6 +1,13 @@
 // The board renders after a pause the server chose for this page load. The
 // pause is the point: a test that waits for data-loaded="true" is stable, a
 // test that sleeps a fixed time is stable only when the pause is shorter.
+//
+// data-loaded only ever says "a render happened", and a page's first render
+// can already leave it "true" before any action runs — so waiting for it
+// again after a click cannot tell that render from the one still to come.
+// data-render is the counter a test reads before the click and waits to see
+// incremented by exactly one: "the render after my click" is unambiguously
+// before + 1, never confusable with the render before it.
 (function () {
   const list = document.getElementById("tasks");
   const empty = document.querySelector("[data-testid='board-empty']");
@@ -32,6 +39,7 @@
       li.append(title, owner, toggle);
       list.appendChild(li);
     }
+    list.dataset.render = String(Number(list.dataset.render || 0) + 1);
     list.dataset.loaded = "true";
   }
 

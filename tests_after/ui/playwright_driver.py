@@ -28,6 +28,9 @@ class PlaywrightBrowser:
     def texts(self, test_id: str) -> list[str]:
         return [item.strip() for item in self._page.locator(selector(test_id)).all_inner_texts()]
 
+    def attribute(self, test_id: str, name: str) -> str:
+        return self._page.locator(selector(test_id)).first.get_attribute(name) or ""
+
     def wait_for_attribute(self, test_id: str, name: str, value: str, timeout_s: float = 10.0) -> None:
         expect(self._page.locator(selector(test_id))).to_have_attribute(name, value, timeout=timeout_s * 1000)
 
