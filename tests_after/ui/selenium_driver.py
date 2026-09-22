@@ -54,9 +54,9 @@ class SeleniumBrowser:
             lambda d: any(e.get_attribute(name) == value for e in d.find_elements(By.CSS_SELECTOR, selector(test_id)))
         )
 
-    def wait_for_text(self, test_id: str, text: str, timeout_s: float = 10.0) -> None:
+    def wait_for_present(self, test_id: str, timeout_s: float = 10.0) -> None:
         WebDriverWait(self._driver, timeout_s).until(
-            lambda d: any(e.text.strip() == text for e in d.find_elements(By.CSS_SELECTOR, selector(test_id)))
+            lambda d: bool(d.find_elements(By.CSS_SELECTOR, selector(test_id)))
         )
 
     def close(self) -> None:

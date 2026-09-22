@@ -43,8 +43,12 @@ def test_a_missing_task_answers_404(api) -> None:
 
 def test_deleting_removes_the_task(api, unique_title) -> None:
     created = api.post("/api/tasks", json={"title": unique_title, "owner": "pavel"}).json()
-    assert api.delete(f"/api/tasks/{created['id']}").status_code == 204
-    assert api.get("/api/tasks").json() == [], "the board must be empty after its only task is deleted"
+    deleted = api.delete(f"/api/tasks/{created['id']}")
+    assert deleted.status_code == 204, (
+        f"deleting task {created['id']} must answer 204, got {deleted.status_code}: {deleted.text}"
+    )
+    tasks = api.get("/api/tasks").json()
+    assert tasks == [], f"the board must be empty after its only task is deleted, it holds {tasks}"
 
 
 def test_the_form_creates_a_task_and_lands_on_the_board(api, unique_title) -> None:
@@ -52,4 +56,5 @@ def test_the_form_creates_a_task_and_lands_on_the_board(api, unique_title) -> No
     assert response.status_code == 303 and response.headers["location"].startswith("/board"), (
         f"the form must redirect to the board, got {response.status_code} {response.headers.get('location')}"
     )
-    assert [task["title"] for task in api.get("/api/tasks").json()] == [unique_title]
+    titles = [task["title"] for task in api.get("/api/tasks").json()]
+    assert titles == [unique_title], f"the form's task should be the one task on the board, it holds {titles}"

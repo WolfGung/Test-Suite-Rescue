@@ -26,7 +26,9 @@ class BoardPage:
         self._browser.fill("owner-input", owner)
         self._browser.click("create-button")
         if expect_error:
-            self._browser.wait_for_attribute("form-error", "data-testid", "form-error")
+            # The refusal re-renders the form with the error paragraph in it;
+            # waiting for that element to exist is the event, and it says so.
+            self._browser.wait_for_present("form-error")
         else:
             self._wait_loaded()
 
