@@ -5,7 +5,7 @@ services:
     build: .
     command: ["python", "-m", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8100"]
     ports:
-      - "127.0.0.1:8180:8100"
+      - "127.0.0.1:8100:8100"
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8100/healthz')"]
       interval: 2s

@@ -2,8 +2,8 @@
 """Compare a fresh measurement with the committed one and fail beyond a tolerance.
 
 Times move with the runner, shares move with luck: a fresh measurement is
-accepted when every share is within 0.15 of the committed one and every time
-within 40 %. Anything further apart means the README is describing a suite
+accepted when every share is within 0.10 of the committed one and every time
+within 30 %. Anything further apart means the README is describing a suite
 that no longer behaves that way, and the file should be re-measured and
 re-committed.
 """
@@ -13,8 +13,8 @@ import json
 import sys
 from pathlib import Path
 
-SHARE_TOLERANCE = 0.15
-TIME_TOLERANCE = 0.40
+SHARE_TOLERANCE = 0.10
+TIME_TOLERANCE = 0.30
 
 
 def main(argv: list[str]) -> int:

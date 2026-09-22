@@ -26,7 +26,7 @@ jobs:
       - uses: actions/setup-python@v5
         with: { python-version: "3.12", cache: pip }
       - run: pip install -e ".[dev]"
-      - run: ruff check app tools tests_after tests_before
+      - run: ruff check app tools tests_after tests_before tests_repo
 
   after:
     name: Cured suite on ${{ matrix.driver }}
