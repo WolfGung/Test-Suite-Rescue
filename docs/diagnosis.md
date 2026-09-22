@@ -1,14 +1,14 @@
 # Diagnosis
 
-`tests_before/` holds ten tests a team would recognise. They pass on a fresh application, on one machine, in the order the files happen to be collected. Run them a second time against the same application and five of them fail; run them on a busy machine and a sixth joins in.
+`tests_before/` holds ten tests a team would recognise. They pass on a fresh application, on one machine, in the order the files happen to be collected. Run them a second time against the same application and five of them fail, and go on failing for as long as nobody restarts it. Two more are decided by luck: a render that outran the sleep in four of these twenty runs, and, in one run of the twenty, a locator that waited thirty seconds for a button nobody had left on the board.
 
 This document takes the suite apart one disease at a time. Each section says what a reader sees, why it happens, what replaced it in `tests_after/`, and which number in `measurements/latest.json` moved. The per-test counts quoted here are read back out of that file by `tests_repo/test_readme_numbers.py`, so a re-measurement cannot leave this page behind.
 
-The output below comes from runs of the sick suite against one application that was started once and never restarted between runs — the condition a shared stand gives a suite. One block is quoted from an earlier revision of that same suite; the section it appears in says so, and says why the shipped suite no longer produces it.
+Every block of output below is from the twenty runs `measurements/latest.json` records: the sick suite against one application that was started once and never restarted between runs — the condition a shared stand gives a suite. The run each one comes from is named where it matters.
 
 ## Fixed sleep
 
-**Symptom.** None a reader can point at: a sleeping test does not fail, it waits. In this run line one test did fail, and it is not one of the six sleeps — it is the race of the next section:
+**Symptom.** None a reader can point at: a sleeping test does not fail, it waits. This is run 1, the quiet afternoon the suite was written on; one test did fail in it, and it is not one of the six sleeps — it is the race of the next section:
 
 ```
 ......F...                                                               [100%]
@@ -22,7 +22,7 @@ The cost is one addition a reader can do by hand. Six sleeps stand in the sick b
 
 **Cure.** `tests_after/ui/board.py` waits for the event. `BoardPage._wait_loaded()` asks the driver for the list's `data-loaded="true"` through `Browser.wait_for_attribute`, so a test continues the moment the render has happened and fails after ten seconds if it never does — `tests_after/test_ui.py::test_the_form_creates_a_task_that_the_board_then_shows` is the same check as the sick form test, without a sleep.
 
-**What it changed.** Mean time per test, 0.78 s before and 0.47 s after; 122.9 s against 156.7 s for twenty runs, and the cured suite is doing three more checks per run while it saves that time.
+**What it changed.** Mean time per test, 0.86 s before and 0.42 s after; 109.0 s against 172.3 s for twenty runs, and the cured suite is doing three more checks per run while it saves that time.
 
 ## Render race
 
@@ -40,7 +40,7 @@ The arithmetic is deliberate and disclosed: a pause drawn uniformly from 100–7
 
 **Cure.** The same `data-loaded` wait for a page's first render. For a render that follows a click there is a second wait, because `data-loaded` was already `"true"` before the click and waiting for it again can be satisfied by the render that came before: `BoardPage.toggle_first()` reads the `data-render` counter, clicks, and waits for `before + 1`, a value the page cannot already have had. `tests_after/test_ui.py::test_toggling_marks_the_task_done_and_offers_undo` uses it.
 
-**What it changed.** `tests_before/test_ui_before.py::test_board_lists_the_task` fails in 4 of 20 runs — the whole of the "tests that fail some runs (flaky)" column. The cured suite's column reads 0, and the delay in the application was not touched.
+**What it changed.** `tests_before/test_ui_before.py::test_board_lists_the_task` fails in 4 of 20 runs — one of the two tests in the "tests that fail some runs (flaky)" column, and the one that fails for this reason; the other is the locator timeout of the *Brittle selector* section. The cured suite's column reads 0, and the delay in the application was not touched.
 
 ## Order dependence
 
@@ -84,7 +84,7 @@ FAILED tests_before/test_ui_before.py::test_nothing_else_on_the_board - Asser...
 
 ## Brittle selector
 
-**Symptom.** Usually none. This is the one disease on this page whose loudest symptom belongs to an earlier revision of the suite:
+**Symptom.** Almost always none — and then, in run 18 of the twenty, thirty seconds of waiting and a message about a locator:
 
 ```
 >       page.locator("text=Done").first.click()
@@ -92,13 +92,13 @@ E       playwright._impl._errors.TimeoutError: Locator.click: Timeout 30000ms ex
 E         - waiting for locator("text=Done").first
 ```
 
-That block is from the sick suite's first revision, where the browser form test also used the hard-coded title. From the second run against one application the form's create was refused, no new row was rendered, and the only task on the board was the one the API file had already toggled — a row whose button reads "Undo". `text=Done` then matched nothing and spent thirty seconds proving it. The shipped suite gives its form test a per-run title (`FORM_TITLE` in `tests_before/test_ui_before.py`), so every run adds one task that is not done, the label is always on the page, and the timeout never fires: `tests_before/test_ui_before.py::test_toggle_marks_done` passes every run of the measurement, and its count is quoted under *Silent assert* below.
+What happened in that run is worth following, because nothing in the message points at it. `FORM_TITLE` is drawn once per process from four digits, and in run 18 it drew a title an earlier run had already created; the form's create was refused, the board did not grow (`assert 18 == 2`, the same count run 17 ended on), and every task standing on it had already been toggled done by the run that created it. A done task's button reads "Undo". So `text=Done` matched nothing at all and spent the full timeout proving it — while the application was answering every request correctly. `tests_before/test_ui_before.py::test_toggle_marks_done` fails in 1 of 20 runs, and that is the whole of its contribution to the measurement.
 
-**Why.** That is the lesson, not an exception to it. A brittle locator is silent until the markup moves. Four locators in the sick browser file address the page by its shape or its wording — `//form//input[1]`, `//form//input[2]`, `//ul/li[1]/span[2]`, `text=Create` and `text=Done` — and in the measurement every test that uses them passes all twenty runs. They are not costing anything today; they are a bill the next markup change presents. Add a field at the top of the form and `//form//input[1]` fills the wrong box without complaining. Add a column and `//ul/li[1]/span[2]` reads the wrong value, still without complaining. Rename the button to "Complete" and the two text locators wait out a timeout that names nothing but a locator. The label is worse than fragile, it is a state: "Done" is shown by a task that is *not* done, which is how the first revision managed to wait thirty seconds for a button that was right there, reading "Undo".
+**Why.** The lesson is the nineteen runs, not the one. A brittle locator is silent until the markup — or the state the markup shows — moves. Five locators in the sick browser file address the page by its shape or its wording: `//form//input[1]`, `//form//input[2]`, `//ul/li[1]/span[2]`, `text=Create`, `text=Done`. Four of them never failed once in twenty runs, and the fifth needed a one-in-fifty coincidence to say anything. They are not costing anything today; they are a bill the next change to the page presents. Add a field at the top of the form and `//form//input[1]` fills the wrong box without complaining. Add a column and `//ul/li[1]/span[2]` reads the wrong owner, still without complaining. Rename the button to "Complete" and both text locators wait out a timeout naming nothing but a locator. The label is the worst of them, because it is not markup at all but a state: "Done" is the button of a task that is *not* done, so the locator addresses the page by the very thing the test is trying to change.
 
-**Cure.** Every element the cured suite touches carries a `data-testid`, and both drivers look up nothing else (`tests_after/ui/browser.py`). Locator for locator, that is: `//form//input[1]` → `title-input`, `//form//input[2]` → `owner-input`, `text=Create` → `create-button`, `//ul/li[1]/span[2]` → `task-owner`, `text=Done` → `task-toggle`. Each name says what the element is for instead of where it sits or what it currently says, so reordering the form, adding a column or relabelling the button moves nothing. The page object then names flows rather than paths: `board.owners()`, `board.titles()`, `board.first_toggle_label()`. `tests_after/test_ui.py::test_the_board_names_the_owner_next_to_the_title` reads the owner by its test id and survives any rearrangement of the row.
+**Cure.** Every element the cured suite touches carries a `data-testid`, and both drivers look up nothing else (`tests_after/ui/browser.py`). Locator for locator: `//form//input[1]` → `title-input`, `//form//input[2]` → `owner-input`, `text=Create` → `create-button`, `//ul/li[1]/span[2]` → `task-owner`, `text=Done` → `task-toggle`. Each name says what the element is for, not where it sits or what it currently reads, so reordering the form, adding a column or relabelling the button moves none of them — and `task-toggle` is the same handle whether the button says "Done" or "Undo", which is why the cured toggle test can assert on the label instead of hunting for it. The page object names flows rather than paths: `board.owners()`, `board.titles()`, `board.first_toggle_label()`. `tests_after/test_ui.py::test_the_board_names_the_owner_next_to_the_title` reads the owner by its test id and survives any rearrangement of the row.
 
-**What it changed.** Nothing in the table, and the "0 of 20" is the honest reading: on today's markup these locators cost the suite nothing, which is exactly what makes them easy to leave in and expensive to keep. What the cure removes is a class of failure that has no measurement until the day it arrives — "timeout waiting for a locator" while the application is working perfectly.
+**What it changed.** Almost nothing in the table, and that is the point: one flaky run out of twenty is all this disease was willing to show for itself here. A brittle locator has no number until the day the page changes, and on that day it produces the least useful failure in testing — a timeout that names a locator, in a suite that is watching an application which is working perfectly.
 
 ## Hard-coded data
 
@@ -133,7 +133,9 @@ E        +  where 3 = len([{'id': 1, 'title': 'Write the report', ...}, {'id': 2
 
 ## Silent assert
 
-**Symptom.** A pass. In the run above, the ninth character is `tests_before/test_ui_before.py::test_toggle_marks_done`, which fails in 0 of 20 runs while asserting `"Undo" in page.content()` — a substring of the whole page. Once the board holds more than one task, a row left behind by an earlier run already says "Undo", and the assertion is satisfied by a task this test never clicked. Its docstring names the two diseases it does carry, a brittle selector and a fixed sleep; what it does not say, because nothing in it could, is that its assertion cannot tell the click it made from a row it never touched.
+**Symptom.** A pass. In the run above, the ninth character is the browser file's toggle test, which asserts `"Undo" in page.content()` — a substring of the whole page. Once the board holds more than one task, a row left behind by an earlier run already says "Undo", and the assertion is satisfied by a task this test never clicked. Its docstring names the two diseases it does carry, a brittle selector and a fixed sleep; what it cannot say, because nothing inside it knows, is that its assertion cannot tell the click it made from a row it never touched.
+
+Run 18 of the measurement has the other half of the same illness. The form test's create was refused there — the title it drew had been used by an earlier run — and the test passed anyway, because `assert FORM_TITLE in page.content()` is satisfied by the refusal page, which helpfully echoes the rejected title back into the form field. `tests_before/test_ui_before.py::test_form_creates_task` — the test the *Fixed sleep* section counts at zero failures in twenty runs — passed in that run while the thing it is named after had not happened.
 
 And when a silent assert does fail, it says only this:
 
@@ -143,6 +145,6 @@ E       assert 409 == 201
 
 **Why.** An assertion that compares two numbers, or looks for a word anywhere in a document, does not record what was expected of what. `tests_before/test_api_before.py::test_health` fails in 0 of 20 runs; on the day it does fail, its message will be two status codes and no URL. The cost is not the failure, it is the half hour spent reconstructing what the test meant.
 
-**Cure.** Assertions in `tests_after` carry the value they saw — `assert response.status_code == 409, f"a second task with the same title must be refused, got {response.status_code}"` — and the browser assertions read one element by test id instead of the page: `tests_after/test_ui.py::test_toggling_marks_the_task_done_and_offers_undo` asserts `board.first_toggle_label() == "Undo"`, the label of the button of the task it just toggled, which no other row can supply.
+**Cure.** Assertions in `tests_after` carry the value they saw — `assert response.status_code == 409, f"a second task with the same title must be refused, got {response.status_code}"` — and the browser assertions read one element by test id instead of the page: `tests_after/test_ui.py::test_toggling_marks_the_task_done_and_offers_undo` asserts `board.first_toggle_label() == "Undo"`, the label of the button of the task it just toggled, which no other row can supply. The cured form test asserts the board's titles are exactly the one it created, so a refusal cannot read as a success.
 
-**What it changed.** No number in the table, and that is the point of keeping it last. A silent assert costs nothing until something breaks; then it costs the one thing a suite exists to give — an answer. Four of the sick suite's tests never fail at all, and two of them cannot fail for the reason they claim to be testing: the owner test reads a value that is "pavel" on every task on the board, and the toggle test looks for a word anywhere on a page that has it already. `tests_repo/test_readme_numbers.py` counts the tests the measurement recorded at zero failures and refuses this sentence if it states another number.
+**What it changed.** No number in the table, and that is the point of keeping it last. A silent assert costs nothing until something breaks; then it costs the one thing a suite exists to give — an answer. Three of the sick suite's tests never fail at all, and two of them cannot fail for the reason they claim to be testing: the owner test reads a value that is "pavel" on every task the board has ever held, and the form test, as run 18 showed, passes on the page that tells it no. `tests_repo/test_readme_numbers.py` counts the tests the measurement recorded at zero failures and refuses this sentence if it states another number.

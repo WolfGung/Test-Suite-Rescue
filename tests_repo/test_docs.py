@@ -91,10 +91,12 @@ def test_every_anchor_the_readme_points_at_is_a_heading_of_the_diagnosis() -> No
     diagnosis = (ROOT / "docs" / "diagnosis.md").read_text(encoding="utf-8")
     anchors = {_slug(line[3:].strip()) for line in diagnosis.splitlines() if line.startswith("## ")}
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
-    wanted = re.findall(r"\(docs/diagnosis\.md#([\w-]+)\)", readme)
-    assert len(wanted) == len(DISEASES), f"the README's table should link one section per disease, it links {wanted}"
-    missing = [anchor for anchor in wanted if anchor not in anchors]
-    assert not missing, f"README links to {missing}, which no `## ` heading of docs/diagnosis.md answers: {anchors}"
+    wanted = set(re.findall(r"\(docs/diagnosis\.md#([\w-]+)\)", readme))
+    assert len(anchors) == len(DISEASES), f"the diagnosis should hold one section per disease, it holds {anchors}"
+    assert wanted == anchors, (
+        f"the README links to {sorted(wanted - anchors)}, which no `## ` heading of docs/diagnosis.md answers, "
+        f"and never links to {sorted(anchors - wanted)}"
+    )
 
 
 def test_the_seconds_the_diagnosis_charges_to_sleeping_are_the_ones_in_the_sick_suite() -> None:
