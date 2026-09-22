@@ -60,7 +60,7 @@ make measure   # twenty runs of each suite, then the table above
 ## Docker
 
 ```bash
-docker compose up -d app        # the board on http://127.0.0.1:8180
+docker compose up -d app        # the board on http://127.0.0.1:8100
 docker compose run --rm tests   # the cured suite against it
 ```
 
