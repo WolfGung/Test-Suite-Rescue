@@ -1,14 +1,10 @@
 # Test Suite Rescue
 
-A deliberately sick test suite, its cured version with the same coverage, and the measured difference between them — twenty runs of each against the same application, reproducible with one command.
+What fixing a flaky, slow test suite looks like: a deliberately sick suite, its cure with the same coverage, and twenty measured runs of each.
 
 [![CI](https://github.com/WolfGung/Test-Suite-Rescue/actions/workflows/ci.yml/badge.svg)](https://github.com/WolfGung/Test-Suite-Rescue/actions/workflows/ci.yml)
 [![Python 3.12](https://img.shields.io/badge/python-3.12-blue)](pyproject.toml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
-
-A suite is rarely rewritten because someone wants tidier code. It is rewritten because the team stopped believing it: a run goes red for no reason anyone can name, so the build gets re-run instead of read. This repository is that job, done in the open — what it takes to fix flaky tests, what it takes to reduce test execution time, and what to do with a suite that needs a restart between runs. The sick suite is not a strawman: it passes on a quiet afternoon against a fresh application — the series in the table happened to lose its very first run to the render race, which is why every run there is red — and every disease in it is one that production suites carry.
-
-## Before and after
 
 <!-- measurements:start -->
 | Measure | Before | After |
@@ -24,15 +20,21 @@ A suite is rarely rewritten because someone wants tidier code. It is rewritten b
 Measured on github-runner — Linux-6.17.0-1022-azure-x86_64-with-glibc2.39, Python 3.12.14, 2026-09-23T00:19:30+00:00; render delay 100–700 ms; 20 runs of each suite.
 <!-- measurements:end -->
 
-The numbers come from `measurements/latest.json`, which `tools/measure.py` writes: twenty runs of each suite against one application that is started once and never restarted between runs, with the board's render delay drawn from the range the file records. The line under the table is generated from that same file, so the delay range and the machine the numbers were taken on are pinned exactly like the table. The committed file is the weekly `measure` job's artifact, taken on a GitHub runner — the line under the table says so; `make measure` takes one on your machine instead, and the line then reads `developer-machine`. That hand-off is two commands and no arithmetic — `cp ci-latest.json measurements/latest.json && python3 -m tools.measure --render measurements/latest.json --update-readme`, which also prints the per-test sentences `docs/diagnosis.md` quotes, ready to paste. `make measure` takes the measurement here instead, and `tests_repo/test_readme_numbers.py` refuses a block that differs from the file, so this section cannot drift away from the measurement it describes.
+## What this shows
+
+- **Flaky tests fixed at the cause, not retried away.** Eight diseases are named and replaced, from fixed sleeps to tests that need a fresh application.
+- **Run time reduced without losing coverage.** The cured suite covers what the sick one did, adds five checks and spends less time per test.
+- **The same checks on two engines.** The browser tests run on Playwright and on Selenium behind one small interface.
+
+## Why a suite gets rescued
+
+A suite is rarely rewritten because someone wants tidier code. It is rewritten because the team stopped believing it: a run goes red for no reason anyone can name, so the build gets re-run instead of read. This repository is that job, done in the open — what it takes to fix flaky tests, what it takes to reduce test execution time, and what to do with a suite that needs a restart between runs. The sick suite is not a strawman: it passes on a quiet afternoon against a fresh application — the series in the table happened to lose its very first run to the render race, which is why every run there is red — and every disease in it is one that production suites carry.
 
 Three rows are worth a sentence:
 
 - **Tests per run** differs because curing a suite is not thinning it out. Of the sick suite's ten checks, eight survive — two of them merged into one cured test that compares the whole list with the one id it created, and the health check became the fixture's readiness probe rather than a test of its own — and five checks are new: a duplicate title refused on the form and again on the API, a missing task answering 404, a delete, and a task created through the API appearing on the board. Eight and five is the thirteen in the table; `pytest --collect-only -q tests_after` lists them.
 - **Tests that fail every run after the first** is the state-pollution group. Those tests pass against a fresh application and fail against the one they polluted themselves. A team meets them as "you have to restart the stand before the tests".
 - **Tests that fail some runs (flaky)** is luck, and it comes in two kinds here: a fixed sleep against a render that takes a different time on every load, and a locator that addresses a button by its label — silent until a title collision leaves no button carrying it (see [Brittle selector](docs/diagnosis.md#brittle-selector)). Which of the two a series catches, and how often, is the coin toss the row counts.
-
-The CI `measure` job re-measures on a schedule and compares the result with the committed file within a tolerance, so numbers that quietly move are caught there rather than by a reader.
 
 ## What was sick, and the cure
 
@@ -100,6 +102,12 @@ Four settings, and all four are read from the environment — nothing here loads
 | `UI_DRIVER` | `playwright` (default) or `selenium`. |
 | `HEADLESS` | `false` to watch the browser do the work. |
 | `RENDER_DELAY_MIN_MS` / `RENDER_DELAY_MAX_MS` | The range the board draws its render delay from, the one deliberate source of timing in the application; the default is in `app/main.py` as `RENDER_DELAY_DEFAULT_MS`, and the measurement records the range it was taken with. |
+
+## Maintaining the numbers
+
+The numbers come from `measurements/latest.json`, which `tools/measure.py` writes: twenty runs of each suite against one application that is started once and never restarted between runs, with the board's render delay drawn from the range the file records. The line under the table is generated from that same file, so the delay range and the machine the numbers were taken on are pinned exactly like the table. The committed file is the weekly `measure` job's artifact, taken on a GitHub runner — the line under the table says so; `make measure` takes one on your machine instead, and the line then reads `developer-machine`. That hand-off is two commands and no arithmetic — `cp ci-latest.json measurements/latest.json && python3 -m tools.measure --render measurements/latest.json --update-readme`, which also prints the per-test sentences `docs/diagnosis.md` quotes, ready to paste. `make measure` takes the measurement here instead, and `tests_repo/test_readme_numbers.py` refuses a block that differs from the file, so this section cannot drift away from the measurement it describes.
+
+The CI `measure` job re-measures on a schedule and compares the result with the committed file within a tolerance, so numbers that quietly move are caught there rather than by a reader.
 
 ## Licence
 
