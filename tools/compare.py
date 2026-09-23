@@ -18,6 +18,14 @@ TIME_TOLERANCE = 0.30
 
 
 def main(argv: list[str]) -> int:
+    missing = [name for name in argv[:2] if not Path(name).exists()]
+    if missing:
+        print(
+            f"missing: {', '.join(missing)} — the second file is the weekly measure job's artifact "
+            "(measurements/ci-latest.json); download it first",
+            file=sys.stderr,
+        )
+        return 2
     committed = json.loads(Path(argv[0]).read_text(encoding="utf-8"))["suites"]
     fresh = json.loads(Path(argv[1]).read_text(encoding="utf-8"))["suites"]
     problems = []

@@ -6,7 +6,7 @@ A deliberately sick test suite, its cured version with the same coverage, and th
 [![Python 3.12](https://img.shields.io/badge/python-3.12-blue)](pyproject.toml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
-A suite is rarely rewritten because someone wants tidier code. It is rewritten because the team stopped believing it: a run goes red for no reason anyone can name, so the build gets re-run instead of read. This repository is that job, done in the open — what it takes to fix flaky tests, what it takes to reduce test execution time, and what to do with a suite that needs a restart between runs. The sick suite is not a strawman: it passes on a quiet afternoon, against a fresh application, and every disease in it is one that production suites carry.
+A suite is rarely rewritten because someone wants tidier code. It is rewritten because the team stopped believing it: a run goes red for no reason anyone can name, so the build gets re-run instead of read. This repository is that job, done in the open — what it takes to fix flaky tests, what it takes to reduce test execution time, and what to do with a suite that needs a restart between runs. The sick suite is not a strawman: it passes on a quiet afternoon against a fresh application — the series in the table happened to lose its very first run to the render race, which is why every run there is red — and every disease in it is one that production suites carry.
 
 ## Before and after
 
@@ -30,7 +30,7 @@ Three rows are worth a sentence:
 
 - **Tests per run** differs because curing a suite is not thinning it out. Of the sick suite's ten checks, eight survive — two of them merged into one cured test that compares the whole list with the one id it created, and the health check became the fixture's readiness probe rather than a test of its own — and five checks are new: a duplicate title refused on the form and again on the API, a missing task answering 404, a delete, and a task created through the API appearing on the board. Eight and five is the thirteen in the table; `pytest --collect-only -q tests_after` lists them.
 - **Tests that fail every run after the first** is the state-pollution group. Those tests pass against a fresh application and fail against the one they polluted themselves. A team meets them as "you have to restart the stand before the tests".
-- **Tests that fail some runs (flaky)** is luck, and this measurement caught both kinds: a fixed sleep against a render that takes a different time on every load (four runs in twenty), and a locator that addresses a button by its label, on the one run in twenty where no button carried it (see [Brittle selector](docs/diagnosis.md#brittle-selector)).
+- **Tests that fail some runs (flaky)** is luck, and it comes in two kinds here: a fixed sleep against a render that takes a different time on every load, and a locator that addresses a button by its label — silent until a title collision leaves no button carrying it (see [Brittle selector](docs/diagnosis.md#brittle-selector)). Which of the two a series catches, and how often, is the coin toss the row counts.
 
 The CI `measure` job re-measures on a schedule and compares the result with the committed file within a tolerance, so numbers that quietly move are caught there rather than by a reader.
 

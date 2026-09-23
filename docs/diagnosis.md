@@ -1,10 +1,10 @@
 # Diagnosis
 
-`tests_before/` holds ten tests a team would recognise. They pass on a fresh application, on one machine, in the order the files happen to be collected. Run them a second time against the same application and five of them fail, and go on failing for as long as nobody restarts it. Two more are decided by luck: a render that outran the sleep in four of these twenty runs, and, in one run of the twenty, a locator that waited thirty seconds for a button nobody had left on the board.
+`tests_before/` holds ten tests a team would recognise. They pass on a fresh application, on one machine, in the order the files happen to be collected. Run them a second time against the same application and five of them fail, and go on failing for as long as nobody restarts it. Two more are decided by luck: a render that outran the sleep in four of these twenty runs, and a locator that finds a button by its label — silent for as long as some button carries that label, thirty seconds of waiting the moment none does. In the series this page is pinned to, that happened once.
 
 This document takes the suite apart one disease at a time. Each section says what a reader sees, why it happens, what replaced it in `tests_after/`, and which number in `measurements/latest.json` moved. The per-test counts quoted here are read back out of that file by `tests_repo/test_readme_numbers.py`, so a re-measurement cannot leave this page behind.
 
-Every block of output below is from the twenty runs `measurements/latest.json` records: the sick suite against one application that was started once and never restarted between runs — the condition a shared stand gives a suite. The run each one comes from is named where it matters.
+Every block of output below is from a recorded series of the sick suite against one application that was started once and never restarted between runs — the condition a shared stand gives a suite. Unless a block says otherwise it is from the series `measurements/latest.json` records; the run each one comes from is named where it matters.
 
 ## Fixed sleep
 
@@ -22,7 +22,7 @@ The cost is one addition a reader can do by hand. Six sleeps stand in the sick b
 
 **Cure.** `tests_after/ui/board.py` waits for the event. `BoardPage._wait_loaded()` asks the driver for the list's `data-loaded="true"` through `Browser.wait_for_attribute`, so a test continues the moment the render has happened and fails after ten seconds if it never does — `tests_after/test_ui.py::test_the_form_creates_a_task_that_the_board_then_shows` is the same check as the sick form test, without a sleep.
 
-**What it changed.** Mean time per test, 0.86 s before and 0.42 s after; 109.0 s against 172.3 s for twenty runs, and the cured suite is doing three more checks per run while it saves that time.
+**What it changed.** Mean time per test, 0.86 s before and 0.42 s after; 109.0 s against 172.3 s for twenty runs, and the cured suite is doing three more checks per run while it saves that time. One subtraction the reader should make before crediting all of that gap to the sleeps: the sick total also holds the single thirty-second locator timeout the brittle-selector section describes — a coincidence of that series, not a sleep — so the sleeps' own share of the gap is smaller than the headline, and the per-test mean carries the same caveat. The sum of the sleeps above is the honest number; the totals are what the runs cost.
 
 ## Render race
 
@@ -84,7 +84,7 @@ FAILED tests_before/test_ui_before.py::test_nothing_else_on_the_board - Asser...
 
 ## Brittle selector
 
-**Symptom.** Almost always none — and then, in run 18 of the twenty, thirty seconds of waiting and a message about a locator:
+**Symptom.** Almost always none. When it does show, it is thirty seconds of waiting and a message that names a locator and nothing else. The block below is from run 18 of the series taken on a developer machine on 2026-09-22 — the one this page was first pinned to; a series in which the coincidence described under it never happens shows no such output, and the locator is no less brittle for it:
 
 ```
 >       page.locator("text=Done").first.click()
@@ -92,13 +92,13 @@ E       playwright._impl._errors.TimeoutError: Locator.click: Timeout 30000ms ex
 E         - waiting for locator("text=Done").first
 ```
 
-What happened in that run is worth following, because nothing in the message points at it. `FORM_TITLE` is drawn once per process from four digits, and in run 18 it drew a title an earlier run had already created; the form's create was refused, the board did not grow (`assert 18 == 2`, the same count run 17 ended on), and every task standing on it had already been toggled done by the run that created it. A done task's button reads "Undo". So `text=Done` matched nothing at all and spent the full timeout proving it — while the application was answering every request correctly. `tests_before/test_ui_before.py::test_toggle_marks_done` fails in 1 of 20 runs, and that is the whole of its contribution to the measurement.
+What happened in that run is worth following, because nothing in the message points at it. `FORM_TITLE` is drawn once per process from four digits — about one collision in a twenty-run series — and in run 18 of that series it drew a title an earlier run had already created; the form's create was refused, the board did not grow (`assert 18 == 2`, the same count run 17 ended on), and every task standing on it had already been toggled done by the run that created it. A done task's button reads "Undo". So `text=Done` matched nothing at all and spent the full timeout proving it — while the application was answering every request correctly. `tests_before/test_ui_before.py::test_toggle_marks_done` fails in 1 of 20 runs, and that is the whole of its contribution to the measurement.
 
 **Why.** The lesson is the nineteen runs, not the one. A brittle locator is silent until the markup — or the state the markup shows — moves. Five locators in the sick browser file address the page by its shape or its wording: `//form//input[1]`, `//form//input[2]`, `//ul/li[1]/span[2]`, `text=Create`, `text=Done`. Four of them never failed once in twenty runs, and the fifth needed a one-in-fifty coincidence to say anything. They are not costing anything today; they are a bill the next change to the page presents. Add a field at the top of the form and `//form//input[1]` fills the wrong box without complaining. Add a column and `//ul/li[1]/span[2]` reads the wrong owner, still without complaining. Rename the button to "Complete" and both text locators wait out a timeout naming nothing but a locator. The label is the worst of them, because it is not markup at all but a state: "Done" is the button of a task that is *not* done, so the locator addresses the page by the very thing the test is trying to change.
 
 **Cure.** Every element the cured suite touches carries a `data-testid`, and both drivers look up nothing else (`tests_after/ui/browser.py`). Locator for locator: `//form//input[1]` → `title-input`, `//form//input[2]` → `owner-input`, `text=Create` → `create-button`, `//ul/li[1]/span[2]` → `task-owner`, `text=Done` → `task-toggle`. Each name says what the element is for, not where it sits or what it currently reads, so reordering the form, adding a column or relabelling the button moves none of them — and `task-toggle` is the same handle whether the button says "Done" or "Undo", which is why the cured toggle test can assert on the label instead of hunting for it. The page object names flows rather than paths: `board.owners()`, `board.titles()`, `board.first_toggle_label()`. `tests_after/test_ui.py::test_the_board_names_the_owner_next_to_the_title` reads the owner by its test id and survives any rearrangement of the row.
 
-**What it changed.** Almost nothing in the table, and that is the point: one flaky run out of twenty is all this disease was willing to show for itself here. A brittle locator has no number until the day the page changes, and on that day it produces the least useful failure in testing — a timeout that names a locator, in a suite that is watching an application which is working perfectly.
+**What it changed.** Almost nothing in the table, and that is the point: a run or two in a series, or none at all, is all this disease is willing to show for itself while the page stands still. A brittle locator has no number until the day the page changes, and on that day it produces the least useful failure in testing — a timeout that names a locator, in a suite that is watching an application which is working perfectly.
 
 ## Hard-coded data
 

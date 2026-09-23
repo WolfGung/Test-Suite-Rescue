@@ -313,6 +313,8 @@ def main(argv: list[str] | None = None) -> int:
     suites = ["before", "after"] if args.suite == "both" else [args.suite]
 
     if args.render is not None:
+        if args.out != ROOT / "measurements" / "latest.json":
+            parser.error("--render renders the file it is given and writes no measurement; --out does not apply")
         payload = json.loads(args.render.read_text(encoding="utf-8"))
         block = render_block(payload)
         print(block)
