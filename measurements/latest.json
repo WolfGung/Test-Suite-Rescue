@@ -1,8 +1,8 @@
 {
-  "taken_on": "developer-machine",
-  "measured_at": "2026-09-22T23:53:13+00:00",
+  "taken_on": "github-runner",
+  "measured_at": "2026-09-23T00:19:30+00:00",
   "python": "3.12.14",
-  "platform": "Linux-7.0.0-31-generic-x86_64-with-glibc2.43",
+  "platform": "Linux-6.17.0-1022-azure-x86_64-with-glibc2.39",
   "render_delay_ms": [
     100,
     700
@@ -13,8 +13,8 @@
       "suite": "before",
       "runs": 20,
       "tests_per_run": 10,
-      "total_seconds": 172.3,
-      "mean_test_seconds": 0.86,
+      "total_seconds": 146.0,
+      "mean_test_seconds": 0.73,
       "failing_runs": 20,
       "failing_runs_share": 1.0,
       "always_failing": [],
@@ -26,8 +26,7 @@
         "tests_before.test_ui_before::test_nothing_else_on_the_board"
       ],
       "flaky": [
-        "tests_before.test_ui_before::test_board_lists_the_task",
-        "tests_before.test_ui_before::test_toggle_marks_done"
+        "tests_before.test_ui_before::test_board_lists_the_task"
       ],
       "failure_counts": {
         "tests_before.test_api_before::test_board_has_exactly_one_task": 19,
@@ -35,19 +34,19 @@
         "tests_before.test_api_before::test_health": 0,
         "tests_before.test_api_before::test_list_contains_created_task": 19,
         "tests_before.test_api_before::test_toggle_marks_done": 19,
-        "tests_before.test_ui_before::test_board_lists_the_task": 4,
+        "tests_before.test_ui_before::test_board_lists_the_task": 2,
         "tests_before.test_ui_before::test_board_shows_owner_in_second_column": 0,
         "tests_before.test_ui_before::test_form_creates_task": 0,
         "tests_before.test_ui_before::test_nothing_else_on_the_board": 19,
-        "tests_before.test_ui_before::test_toggle_marks_done": 1
+        "tests_before.test_ui_before::test_toggle_marks_done": 0
       }
     },
     "after": {
       "suite": "after",
       "runs": 20,
       "tests_per_run": 13,
-      "total_seconds": 109.0,
-      "mean_test_seconds": 0.42,
+      "total_seconds": 118.9,
+      "mean_test_seconds": 0.46,
       "failing_runs": 0,
       "failing_runs_share": 0.0,
       "always_failing": [],

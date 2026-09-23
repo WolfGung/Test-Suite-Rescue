@@ -14,17 +14,17 @@ A suite is rarely rewritten because someone wants tidier code. It is rewritten b
 | Measure | Before | After |
 | --- | --- | --- |
 | Tests per run | 10 | 13 |
-| Total time for 20 runs | 172.3 s | 109.0 s |
-| Mean time per test | 0.86 s | 0.42 s |
+| Total time for 20 runs | 146.0 s | 118.9 s |
+| Mean time per test | 0.73 s | 0.46 s |
 | Runs with at least one failure | 20 of 20 (100%) | 0 of 20 (0%) |
 | Tests that fail every run | 0 | 0 |
 | Tests that fail every run after the first | 5 | 0 |
-| Tests that fail some runs (flaky) | 2 | 0 |
+| Tests that fail some runs (flaky) | 1 | 0 |
 
-Measured on developer-machine — Linux-7.0.0-31-generic-x86_64-with-glibc2.43, Python 3.12.14, 2026-09-22T23:53:13+00:00; render delay 100–700 ms; 20 runs of each suite.
+Measured on github-runner — Linux-6.17.0-1022-azure-x86_64-with-glibc2.39, Python 3.12.14, 2026-09-23T00:19:30+00:00; render delay 100–700 ms; 20 runs of each suite.
 <!-- measurements:end -->
 
-The numbers come from `measurements/latest.json`, which `tools/measure.py` writes: twenty runs of each suite against one application that is started once and never restarted between runs, with the board's render delay drawn from the range the file records. The line under the table is generated from that same file, so the delay range and the machine the numbers were taken on are pinned exactly like the table. The committed file was taken on a developer machine; the weekly `measure` job re-takes it on a GitHub runner, and replacing this file with that job's artifact makes the line read `github-runner`. That hand-off is two commands and no arithmetic — `cp ci-latest.json measurements/latest.json && python3 -m tools.measure --render measurements/latest.json --update-readme`, which also prints the per-test sentences `docs/diagnosis.md` quotes, ready to paste. `make measure` takes the measurement here instead, and `tests_repo/test_readme_numbers.py` refuses a block that differs from the file, so this section cannot drift away from the measurement it describes.
+The numbers come from `measurements/latest.json`, which `tools/measure.py` writes: twenty runs of each suite against one application that is started once and never restarted between runs, with the board's render delay drawn from the range the file records. The line under the table is generated from that same file, so the delay range and the machine the numbers were taken on are pinned exactly like the table. The committed file is the weekly `measure` job's artifact, taken on a GitHub runner — the line under the table says so; `make measure` takes one on your machine instead, and the line then reads `developer-machine`. That hand-off is two commands and no arithmetic — `cp ci-latest.json measurements/latest.json && python3 -m tools.measure --render measurements/latest.json --update-readme`, which also prints the per-test sentences `docs/diagnosis.md` quotes, ready to paste. `make measure` takes the measurement here instead, and `tests_repo/test_readme_numbers.py` refuses a block that differs from the file, so this section cannot drift away from the measurement it describes.
 
 Three rows are worth a sentence:
 
