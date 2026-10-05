@@ -42,7 +42,8 @@ app:
 measure:
 	python3 -m tools.measure --runs 20 --update-readme --taken-on developer-machine
 
-# The committed measurement against a fresh one, within the tolerances CI uses.
+# The committed measurement against a fresh one, by the rules tools/compare.py
+# states: counts and failures strictly, times reported only.
 compare:
 	python3 -m tools.compare measurements/latest.json measurements/ci-latest.json
 
