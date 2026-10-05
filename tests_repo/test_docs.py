@@ -7,8 +7,8 @@ disease the sick suite names in its own docstrings, every test it cites
 exists, every relative link in the documents points at a file that is there,
 every anchor the README's table links to is a heading that is there, the
 seconds the diagnosis charges to sleeping are the seconds the sick suite
-sleeps, and the README still tells a reader the virtualenv, the three
-commands and the second engine.
+sleeps, the README still tells a reader the virtualenv, the three commands
+and the second engine, and its badge still reads the push runs of CI on main.
 """
 from __future__ import annotations
 
@@ -78,6 +78,13 @@ def test_the_readme_states_the_three_commands_and_the_two_drivers() -> None:
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
     for command in ("python3 -m venv .venv", "make install", "make test", "make measure", "UI_DRIVER=selenium"):
         assert command in readme, f"README must show {command}"
+
+
+def test_the_badge_follows_the_push_runs_of_ci_on_main() -> None:
+    """Not the weekly measurement, and not a pull request from a branch: only what landed on main."""
+    readme = (ROOT / "README.md").read_text(encoding="utf-8")
+    badge = "https://github.com/WolfGung/Test-Suite-Rescue/actions/workflows/ci.yml/badge.svg?branch=main&event=push"
+    assert f"[![CI]({badge})]" in readme, "the README's CI badge should read ci.yml's push runs on main"
 
 
 def _slug(heading: str) -> str:

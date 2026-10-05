@@ -1,6 +1,7 @@
 name: CI
 
-# Only what a commit decides, because the README badge follows this file.
+# Only what a commit decides: the README badge follows this file's push runs
+# on main.
 # The weekly measurement lives in measure.yml, so it never colours the badge.
 on:
   push:
@@ -13,7 +14,7 @@ permissions:
 jobs:
   lint:
     name: Lint
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v7
@@ -24,7 +25,7 @@ jobs:
 
   after:
     name: Cured suite on ${{ matrix.driver }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     strategy:
       fail-fast: false
@@ -56,7 +57,7 @@ jobs:
     # time; the job is allowed to fail so that a red here never blocks the
     # cured suite from being the verdict.
     name: Sick suite (allowed to fail)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     continue-on-error: true
     steps:

@@ -78,6 +78,16 @@ def test_the_measurement_is_compared_with_the_committed_file_and_kept() -> None:
     assert "measurements/ci-latest.json" in upload["with"]["path"], upload
 
 
+def test_every_job_pins_its_runner_image() -> None:
+    """`ubuntu-latest` moves under a workflow without a commit; a pinned image moves only when this file does."""
+    images = {
+        f"{name}:{job_id}": job["runs-on"]
+        for name, workflow in (("ci.yml", WORKFLOW), ("measure.yml", MEASURE))
+        for job_id, job in workflow["jobs"].items()
+    }
+    assert set(images.values()) == {"ubuntu-24.04"}, images
+
+
 def test_the_lint_job_covers_every_tests_directory_that_exists() -> None:
     """A new `tests_*` package must not silently fall outside ruff's scope."""
     test_dirs = sorted(p.name for p in REPO_ROOT.glob("tests_*") if p.is_dir())
