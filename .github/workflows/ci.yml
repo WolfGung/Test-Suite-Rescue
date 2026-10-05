@@ -1,17 +1,11 @@
 name: CI
 
+# Only what a commit decides, because the README badge follows this file.
+# The weekly measurement lives in measure.yml, so it never colours the badge.
 on:
   push:
     branches: [main]
   pull_request:
-  schedule:
-    - cron: "0 4 * * 1"
-  workflow_dispatch:
-    inputs:
-      runs:
-        description: "How many runs of each suite the measurement takes"
-        default: "20"
-        required: false
 
 permissions:
   contents: read
@@ -80,32 +74,3 @@ jobs:
           pytest tests_before -q -p no:cacheprovider || true
           pytest tests_before -q -p no:cacheprovider
 
-  measure:
-    # Twenty runs of each suite against one app, on this runner, and the
-    # table the README carries. Weekly and on request: it takes about ten
-    # minutes and its numbers are the ones a reader is asked to check.
-    name: Measure before and after
-    runs-on: ubuntu-latest
-    timeout-minutes: 45
-    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
-    steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-python@v7
-        with: { python-version: "3.12", cache: pip }
-      - run: pip install -e ".[dev]"
-      - run: playwright install --with-deps chromium
-      - name: Measure
-        # --taken-on ends up in the artifact and, when that artifact replaces
-        # measurements/latest.json, in the README's provenance line.
-        run: |
-          python -m tools.measure --runs "${{ inputs.runs || 20 }}" \
-            --out measurements/ci-latest.json --taken-on github-runner
-      - name: Compare with the committed measurement
-        run: python -m tools.compare measurements/latest.json measurements/ci-latest.json
-      - uses: actions/upload-artifact@v7
-        if: always()
-        with:
-          name: measurements
-          path: |
-            measurements/ci-latest.json
-            measurements/runs

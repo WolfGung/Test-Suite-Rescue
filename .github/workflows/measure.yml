@@ -1,0 +1,43 @@
+name: Measure
+
+# The README's before-and-after table, taken again: twenty runs of each suite
+# against one app on a GitHub runner, compared with measurements/latest.json.
+# Weekly and on request, and in a file of its own: it takes about ten minutes,
+# and a measurement that moved turns this run red, never the CI badge.
+on:
+  schedule:
+    - cron: "0 4 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  measure:
+    name: Measure before and after
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with: { python-version: "3.12", cache: pip }
+      - run: pip install -e ".[dev]"
+      - run: playwright install --with-deps chromium
+      - name: Measure
+        # As many runs as the committed file holds, because the comparison
+        # refuses any other count. --taken-on ends up in the artifact and, when
+        # that artifact replaces measurements/latest.json, in the README's
+        # provenance line.
+        run: |
+          python -m tools.measure --runs 20 \
+            --out measurements/ci-latest.json --taken-on github-runner
+      - name: Compare with the committed measurement
+        # Counts and failures strictly, times only in the report: tools/compare.py.
+        run: python -m tools.compare measurements/latest.json measurements/ci-latest.json
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: measurements
+          path: |
+            measurements/ci-latest.json
+            measurements/runs

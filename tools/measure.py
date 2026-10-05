@@ -14,7 +14,8 @@ are already under measurements/runs/, so the same runs can be counted a new
 way without measuring again.
 
 Taking over someone else's numbers is two commands and no arithmetic. Download
-the weekly `measure` job's artifact and then:
+the `measurements` artifact of a run of .github/workflows/measure.yml, the
+weekly measurement on a GitHub runner, and then:
 
     cp ci-latest.json measurements/latest.json
     python3 -m tools.measure --render measurements/latest.json --update-readme
@@ -307,7 +308,7 @@ def main(argv: list[str] | None = None) -> int:
         "--taken-on",
         default=None,
         metavar="TEXT",
-        help=f"where this measurement was taken (default: {DEFAULT_TAKEN_ON}); the CI job passes github-runner",
+        help=f"where this measurement was taken (default: {DEFAULT_TAKEN_ON}); measure.yml passes github-runner",
     )
     args = parser.parse_args(argv)
     suites = ["before", "after"] if args.suite == "both" else [args.suite]
