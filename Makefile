@@ -38,7 +38,8 @@ test-before:
 app:
 	python3 -m uvicorn app.main:app --port $(APP_PORT)
 
-# Twenty runs of each suite against one live app, then the before/after block.
+# A first run of each suite on a freshly reset board, twenty counted runs after
+# it, all against one live app, then the before/after block.
 measure:
 	python3 -m tools.measure --runs 20 --update-readme --taken-on developer-machine
 

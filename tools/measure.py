@@ -6,6 +6,17 @@ the sick suite's diseases show — a hard-coded title is refused from the
 second run on, and a board nobody clears keeps growing. The board is reset
 once before each suite's series, so the two suites start from the same state.
 
+Each series opens with a first run against that freshly reset board, and the
+N runs that are counted come after it. The first run is the only one whose
+outcome luck decides: against a fresh board the sick suite fails only when
+the render race fires, while every later run fails on the task, the title and
+the rows the first run left behind. Counting it would make the number of
+failing runs a coin toss; keeping it apart makes that number a fact a
+comparison can hold exactly. The first run is not thrown away: it is kept as
+<suite>-00.xml, its failed tests are written to the measurement, and it is
+what tells a test that fails every run from one that fails every run after
+the first.
+
 Every run writes a junit file under measurements/runs/; the summary of all of
 them goes to measurements/latest.json and, with --update-readme, into the
 README between the measurements markers. Nothing in the README is typed by
@@ -22,7 +33,7 @@ weekly measurement on a GitHub runner, and then:
 
 --render reads that one file, writes the README block from it — the table and
 the provenance line naming the machine the numbers were taken on — and prints
-the per-test sentences docs/diagnosis.md carries ("… fails in 19 of 20 runs")
+the per-test sentences docs/diagnosis.md carries ("… fails in 3 of 20 runs")
 in the exact form the citation pin reads, ready to paste. It reads no junit
 file and runs no test.
 """
@@ -102,37 +113,42 @@ def parse_junit(path: Path) -> RunResult:
     return RunResult(tests, failures, errors, round(seconds, 3), failed, names)
 
 
-#: Below this many runs, "passed once and failed ever after" is indistinguishable
-#: from luck — at four runs a merely flaky test reaches that shape about once in
-#: sixteen — so the group is only claimed from five runs on.
+#: Below this many runs, the first included, "passed once and failed ever after"
+#: is indistinguishable from luck — at four runs a merely flaky test reaches that
+#: shape about once in sixteen — so the group is only claimed from five runs on.
 MIN_RUNS_FOR_BROKEN_AFTER_FIRST = 5
 
 
-def summarise(suite: str, runs: list[RunResult]) -> SuiteSummary:
-    """Count the runs into the four groups the README's table names.
+def summarise(suite: str, first: RunResult, runs: list[RunResult]) -> SuiteSummary:
+    """Count the runs after the first into the four groups the README's table names.
 
-    A test that passes the first run and fails every run after it is not flaky
-    and not simply broken: the first run broke it for all the runs that follow,
-    by leaving a task, a title or an id behind. It is the signature of state
-    nobody cleans up, and it deserves its own group — but only when there are
-    enough runs for the shape to mean anything. Under
-    MIN_RUNS_FOR_BROKEN_AFTER_FIRST runs a flaky test that happened to pass
-    first and fail afterwards has the same shape, so those tests stay in
-    `flaky`, where an unexplained failure belongs until it is explained.
+    `first` is the run against the freshly reset board and `runs` the ones
+    after it. Only `runs` are counted — runs, tests, times, failing runs and
+    every test's failure count — because the first is the one run whose
+    outcome luck decides. The first run still sorts the tests that fail every
+    counted run: a test that also failed the first fails every run; a test
+    that passed it is not flaky and not simply broken — the first run broke
+    it for all the runs that follow, by leaving a task, a title or an id
+    behind. That is the signature of state nobody cleans up, and it deserves
+    its own group — but only when there are enough runs for the shape to mean
+    anything. Under MIN_RUNS_FOR_BROKEN_AFTER_FIRST runs, the first included,
+    a flaky test that happened to pass first and fail afterwards has the same
+    shape, so those tests stay in `flaky`, where an unexplained failure
+    belongs until it is explained.
     """
     if not runs:
-        raise ValueError(f"no runs to summarise for {suite}")
+        raise ValueError(f"no runs after the first to summarise for {suite}")
     total = sum(run.seconds for run in runs)
     tests = sum(run.tests for run in runs)
     failing_runs = sum(1 for run in runs if run.failed)
-    names = sorted(set().union(*(run.names for run in runs)))
+    names = sorted(first.names.union(*(run.names for run in runs)))
     counts = {name: sum(1 for run in runs if name in run.failed_names) for name in names}
+    every_run = [name for name in names if counts[name] == len(runs)]
+    always_failing = [name for name in every_run if name in first.failed_names]
     broken_after_first = [
         name
-        for name in names
-        if len(runs) >= MIN_RUNS_FOR_BROKEN_AFTER_FIRST
-        and counts[name] == len(runs) - 1
-        and name not in runs[0].failed_names
+        for name in every_run
+        if 1 + len(runs) >= MIN_RUNS_FOR_BROKEN_AFTER_FIRST and name not in first.failed_names
     ]
     return SuiteSummary(
         suite=suite,
@@ -142,9 +158,13 @@ def summarise(suite: str, runs: list[RunResult]) -> SuiteSummary:
         mean_test_seconds=round(total / tests, 2) if tests else 0.0,
         failing_runs=failing_runs,
         failing_runs_share=round(failing_runs / len(runs), 2),
-        always_failing=[name for name in names if counts[name] == len(runs)],
+        always_failing=always_failing,
         broken_after_first_run=broken_after_first,
-        flaky=[name for name in names if 0 < counts[name] < len(runs) and name not in broken_after_first],
+        flaky=[
+            name
+            for name in names
+            if counts[name] > 0 and name not in always_failing and name not in broken_after_first
+        ],
         failure_counts=counts,
     )
 
@@ -254,10 +274,11 @@ def _reset(app_url: str) -> None:
     httpx.post(f"{app_url}/api/reset", timeout=10).raise_for_status()
 
 
-def _run_suite(suite: str, runs: int, app_url: str, out_dir: Path) -> list[RunResult]:
+def _run_suite(suite: str, runs: int, app_url: str, out_dir: Path) -> tuple[RunResult, list[RunResult]]:
+    """The first run against the board as it was just reset, then `runs` runs to count after it."""
     out_dir.mkdir(parents=True, exist_ok=True)
     results = []
-    for index in range(1, runs + 1):
+    for index in range(0, runs + 1):
         junit = out_dir / f"{suite}-{index:02d}.xml"
         subprocess.run(
             [sys.executable, "-m", "pytest", f"tests_{suite}", "-q", "-p", "no:cacheprovider", f"--junitxml={junit}"],
@@ -265,28 +286,41 @@ def _run_suite(suite: str, runs: int, app_url: str, out_dir: Path) -> list[RunRe
         )
         result = parse_junit(junit)
         results.append(result)
-        print(
-            f"{suite} run {index:2d}/{runs}: {result.tests} tests, "
-            f"{result.failures + result.errors} failed, {result.seconds:.1f} s"
-        )
-    return results
+        label = "first run (not counted)" if index == 0 else f"run {index:2d}/{runs}"
+        failed = result.failures + result.errors
+        print(f"{suite} {label}: {result.tests} tests, {failed} failed, {result.seconds:.1f} s")
+    return results[0], results[1:]
 
 
-def _summarise_runs(suites: list[str], runs_dir: Path) -> dict[str, SuiteSummary]:
-    """Read the junit files already on disk — no app, no pytest, no new runs."""
+def _summarise_runs(suites: list[str], runs_dir: Path) -> tuple[dict[str, SuiteSummary], dict[str, list[str]]]:
+    """Read the junit files already on disk — no app, no pytest, no new runs.
+
+    `<suite>-00.xml` is the first run; every other file of the suite is a run after it.
+    """
     summaries: dict[str, SuiteSummary] = {}
+    first_failed: dict[str, list[str]] = {}
     for suite in suites:
-        files = sorted(runs_dir.glob(f"{suite}-*.xml"))
+        first_file = runs_dir / f"{suite}-00.xml"
+        if not first_file.exists():
+            raise SystemExit(
+                f"no first run for tests_{suite} under {runs_dir} ({first_file.name}); "
+                "these runs were taken without one — measure again"
+            )
+        files = sorted(path for path in runs_dir.glob(f"{suite}-*.xml") if path != first_file)
         if not files:
-            raise SystemExit(f"no junit files for tests_{suite} under {runs_dir}; run a measurement first")
-        summaries[suite] = summarise(suite, [parse_junit(path) for path in files])
-        print(f"{suite}: {len(files)} runs read from {runs_dir}")
-    return summaries
+            raise SystemExit(f"no runs after the first for tests_{suite} under {runs_dir}; run a measurement first")
+        first = parse_junit(first_file)
+        summaries[suite] = summarise(suite, first, [parse_junit(path) for path in files])
+        first_failed[suite] = sorted(first.failed_names)
+        print(f"{suite}: a first run and {len(files)} runs after it read from {runs_dir}")
+    return summaries, first_failed
 
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    parser.add_argument("--runs", type=int, default=20)
+    parser.add_argument(
+        "--runs", type=int, default=20, help="runs to count per suite, after the first run (default: 20)"
+    )
     parser.add_argument("--suite", choices=["before", "after", "both"], default="both")
     parser.add_argument("--app-url", default=None, help="use a running app instead of starting one")
     parser.add_argument("--out", type=Path, default=ROOT / "measurements" / "latest.json")
@@ -328,8 +362,9 @@ def main(argv: list[str] | None = None) -> int:
         if not args.out.exists():
             raise SystemExit(f"{args.out} does not exist; --summarise-only rebuilds an existing measurement")
         payload = json.loads(args.out.read_text(encoding="utf-8"))
-        summaries = _summarise_runs(suites, ROOT / "measurements" / "runs")
+        summaries, first_failed = _summarise_runs(suites, ROOT / "measurements" / "runs")
         payload["suites"] = {**payload.get("suites", {}), **{n: asdict(s) for n, s in summaries.items()}}
+        payload["first_run_failed"] = {**payload.get("first_run_failed", {}), **first_failed}
         # Counting the same runs a new way does not move them to another
         # machine: keep the provenance the measurement was taken with unless
         # this call states a different one.
@@ -344,9 +379,12 @@ def main(argv: list[str] | None = None) -> int:
         app_url = f"http://127.0.0.1:{port}"
     try:
         summaries: dict[str, SuiteSummary] = {}
+        first_failed: dict[str, list[str]] = {}
         for suite in suites:
             _reset(app_url)  # the same starting state for each suite; never between runs
-            summaries[suite] = summarise(suite, _run_suite(suite, args.runs, app_url, ROOT / "measurements" / "runs"))
+            first, runs = _run_suite(suite, args.runs, app_url, ROOT / "measurements" / "runs")
+            summaries[suite] = summarise(suite, first, runs)
+            first_failed[suite] = sorted(first.failed_names)
     finally:
         if process is not None:
             process.terminate()
@@ -359,6 +397,9 @@ def main(argv: list[str] | None = None) -> int:
         "platform": platform.platform(),
         "render_delay_ms": list(_render_delay_ms()),
         "runs": args.runs,
+        # The tests each suite's first run failed: not counted in "suites",
+        # kept so the run luck decides is on the record all the same.
+        "first_run_failed": first_failed,
         "suites": {name: asdict(summary) for name, summary in summaries.items()},
     }
     return _write(payload, args)

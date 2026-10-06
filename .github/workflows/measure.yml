@@ -25,7 +25,8 @@ jobs:
       - run: playwright install --with-deps chromium
       - name: Measure
         # As many runs as the committed file holds, because the comparison
-        # refuses any other count. --taken-on ends up in the artifact and, when
+        # refuses any other count; tools.measure takes one uncounted first run
+        # of each suite before them. --taken-on ends up in the artifact and, when
         # that artifact replaces measurements/latest.json, in the README's
         # provenance line.
         run: |
