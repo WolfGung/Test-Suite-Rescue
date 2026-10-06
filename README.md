@@ -17,7 +17,7 @@ What fixing a flaky, slow test suite looks like: a deliberately sick suite, its 
 | Tests that fail every run after the first | 5 | 0 |
 | Tests that fail some runs (flaky) | 1 | 0 |
 
-Measured on github-runner — Linux-6.17.0-1022-azure-x86_64-with-glibc2.39, Python 3.12.14, 2026-10-06T15:24:21+00:00; render delay 100–700 ms; 20 runs of each suite.
+Measured on github-runner — Linux-6.17.0-1022-azure-x86_64-with-glibc2.39, Python 3.12.14, 2026-10-06T15:24:21+00:00; render delay 100–700 ms; 20 runs of each suite, counted after a first run on a freshly reset board in which 0 sick and 0 cured tests failed.
 <!-- measurements:end -->
 
 ## What this shows
@@ -28,7 +28,7 @@ Measured on github-runner — Linux-6.17.0-1022-azure-x86_64-with-glibc2.39, Pyt
 
 ## Why a suite gets rescued
 
-A suite is rarely rewritten because someone wants tidier code. It is rewritten because the team stopped believing it: a run goes red for no reason anyone can name, so the build gets re-run instead of read. This repository is that job, done in the open — what it takes to fix flaky tests, what it takes to reduce test execution time, and what to do with a suite that needs a restart between runs. The sick suite is not a strawman: it passes on a quiet afternoon against a fresh application — the series in the table happened to lose its very first run to the render race, which is why every run there is red — and every disease in it is one that production suites carry.
+A suite is rarely rewritten because someone wants tidier code. It is rewritten because the team stopped believing it: a run goes red for no reason anyone can name, so the build gets re-run instead of read. This repository is that job, done in the open — what it takes to fix flaky tests, what it takes to reduce test execution time, and what to do with a suite that needs a restart between runs. The sick suite is not a strawman: it passes on a quiet afternoon against a fresh application, unless the render race fires there too, and every disease in it is one that production suites carry. That afternoon is the first run of every measured series; the line under the table says how it went, and the table leaves it out, because it is the one run luck decides. Every one of the twenty runs the table counts is red, because each meets a board the runs before it have used.
 
 Three rows are worth a sentence:
 

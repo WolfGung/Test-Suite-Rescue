@@ -194,16 +194,19 @@ def render_table(before: SuiteSummary, after: SuiteSummary) -> str:
 def render_block(payload: dict) -> str:
     """The whole README block: the table, and one line saying where it came from.
 
-    The provenance line is generated rather than typed, so the delay range and
-    the machine the numbers were taken on are pinned by the same check that
-    pins the table.
+    The provenance line is generated rather than typed, so the delay range, the
+    machine the numbers were taken on and what the uncounted first run did are
+    pinned by the same check that pins the table.
     """
     suites = payload["suites"]
     table = render_table(SuiteSummary(**suites["before"]), SuiteSummary(**suites["after"]))
     low, high = payload["render_delay_ms"]
+    first = payload["first_run_failed"]
     provenance = (
         f"Measured on {payload['taken_on']} — {payload['platform']}, Python {payload['python']}, "
-        f"{payload['measured_at']}; render delay {low}–{high} ms; {payload['runs']} runs of each suite."
+        f"{payload['measured_at']}; render delay {low}–{high} ms; {payload['runs']} runs of each suite, "
+        f"counted after a first run on a freshly reset board in which {len(first['before'])} sick "
+        f"and {len(first['after'])} cured tests failed."
     )
     return f"{table}\n{provenance}\n"
 

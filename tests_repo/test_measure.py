@@ -190,8 +190,16 @@ def test_the_block_carries_the_table_and_one_line_saying_where_it_came_from() ->
     assert "| Tests per run | 1 | 2 |" in block
     assert block.rstrip("\n").endswith(
         "Measured on a-laptop — Linux-test, Python 3.12.14, 2026-09-23T10:00:00+00:00; "
-        "render delay 100–700 ms; 4 runs of each suite."
+        "render delay 100–700 ms; 4 runs of each suite, counted after a first run on a freshly reset board "
+        "in which 0 sick and 0 cured tests failed."
     ), block
+
+
+def test_the_block_says_what_the_uncounted_first_run_did() -> None:
+    """The table leaves the first run out; the line under it is where a reader finds it."""
+    payload = _synthetic_payload()
+    payload["first_run_failed"] = {"before": ["tests_before.test_x::test_race"], "after": []}
+    assert "in which 1 sick and 0 cured tests failed." in render_block(payload)
 
 
 def test_render_writes_the_block_from_a_file_without_re_reading_a_single_junit(
