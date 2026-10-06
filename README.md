@@ -10,14 +10,14 @@ What fixing a flaky, slow test suite looks like: a deliberately sick suite, its 
 | Measure | Before | After |
 | --- | --- | --- |
 | Tests per run | 10 | 13 |
-| Total time for 20 runs | 146.0 s | 118.9 s |
-| Mean time per test | 0.73 s | 0.46 s |
+| Total time for 20 runs | 142.5 s | 114.8 s |
+| Mean time per test | 0.71 s | 0.44 s |
 | Runs with at least one failure | 20 of 20 (100%) | 0 of 20 (0%) |
 | Tests that fail every run | 0 | 0 |
 | Tests that fail every run after the first | 5 | 0 |
 | Tests that fail some runs (flaky) | 1 | 0 |
 
-Measured on github-runner — Linux-6.17.0-1022-azure-x86_64-with-glibc2.39, Python 3.12.14, 2026-09-23T00:19:30+00:00; render delay 100–700 ms; 20 runs of each suite.
+Measured on github-runner — Linux-6.17.0-1022-azure-x86_64-with-glibc2.39, Python 3.12.14, 2026-10-06T15:24:21+00:00; render delay 100–700 ms; 20 runs of each suite.
 <!-- measurements:end -->
 
 ## What this shows

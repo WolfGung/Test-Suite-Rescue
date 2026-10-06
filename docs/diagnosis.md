@@ -1,17 +1,17 @@
 # Diagnosis
 
-`tests_before/` holds ten tests a team would recognise. They pass on a fresh application, on one machine, in the order the files happen to be collected. Run them a second time against the same application and five of them fail, and go on failing for as long as nobody restarts it. Two more are decided by luck: a render that outran the sleep in two of these twenty runs, and a locator that finds a button by its label — silent for as long as some button carries that label, thirty seconds of waiting the moment none does. In the series this page is pinned to it did not happen; in the developer-machine series quoted in that section, once.
+`tests_before/` holds ten tests a team would recognise. They pass on a fresh application, on one machine, in the order the files happen to be collected. Run them a second time against the same application and five of them fail, and go on failing for as long as nobody restarts it. Two more are decided by luck: a render that outran the sleep in four of these twenty runs, and a locator that finds a button by its label — silent for as long as some button carries that label, thirty seconds of waiting the moment none does. In the series this page is pinned to it did not happen; in the developer-machine series quoted in that section, once.
 
 This document takes the suite apart one disease at a time. Each section says what a reader sees, why it happens, what replaced it in `tests_after/`, and which number in `measurements/latest.json` moved. The per-test counts quoted here are read back out of that file by `tests_repo/test_readme_numbers.py`, so a re-measurement cannot leave this page behind.
 
-Every block of output below is from a recorded series of the sick suite against one application that was started once and never restarted between runs — the condition a shared stand gives a suite. Unless a block says otherwise it is from the series `measurements/latest.json` records; the run each one comes from is named where it matters.
+Every block of output below is from a recorded series of the sick suite against one application that was started once and never restarted between runs — the condition a shared stand gives a suite. Unless a block says otherwise it is from the series `measurements/latest.json` records; the run each one comes from is named where it matters. A series opens with a first run against a freshly reset board, and the twenty runs it counts come after it: the first run is the only one luck decides, so the measurement records what it failed and keeps it out of every count. "In N of 20 runs" below always means the twenty after the first.
 
 ## Fixed sleep
 
-**Symptom.** None a reader can point at: a sleeping test does not fail, it waits. This is run 1, the quiet afternoon the suite was written on; one test did fail in it, and it is not one of the six sleeps — it is the race of the next section:
+**Symptom.** None a reader can point at: a sleeping test does not fail, it waits. This is the first run of the series, the quiet afternoon the suite was written on — a freshly reset board, and not one of the twenty runs counted below. All ten tests passed in it, the six sleeps included:
 
 ```
-......F...                                                               [100%]
+..........                                                               [100%]
 ```
 
 `tests_before/test_ui_before.py::test_form_creates_task` fails in 0 of 20 runs and pays two seconds for it on every one of them. Slowness has no stack trace, which is why it survives review.
@@ -22,7 +22,7 @@ The cost is one addition a reader can do by hand. Six sleeps stand in the sick b
 
 **Cure.** `tests_after/ui/board.py` waits for the event. `BoardPage._wait_loaded()` asks the driver for the list's `data-loaded="true"` through `Browser.wait_for_attribute`, so a test continues the moment the render has happened and fails after ten seconds if it never does — `tests_after/test_ui.py::test_the_form_creates_a_task_that_the_board_then_shows` is the same check as the sick form test, without a sleep.
 
-**What it changed.** Mean time per test, 0.73 s before and 0.46 s after; 118.9 s against 146.0 s for twenty runs, and the cured suite is doing three more checks per run while it saves that time. One subtraction the reader should make in any series that holds a locator timeout (the developer-machine series quoted in the brittle-selector section did; the one this page is pinned to does not): thirty seconds of that sick total are then the timeout, not sleep, so the sleeps' own share of the gap is smaller than the headline, and the per-test mean carries the same caveat. The sum of the sleeps above is the honest number; the totals are what the runs cost.
+**What it changed.** Mean time per test, 0.71 s before and 0.44 s after; 114.8 s against 142.5 s for twenty runs, and the cured suite is doing three more checks per run while it saves that time. One subtraction the reader should make in any series that holds a locator timeout (the developer-machine series quoted in the brittle-selector section did; the one this page is pinned to does not): thirty seconds of that sick total are then the timeout, not sleep, so the sleeps' own share of the gap is smaller than the headline, and the per-test mean carries the same caveat. The sum of the sleeps above is the honest number; the totals are what the runs cost.
 
 ## Render race
 
@@ -40,7 +40,7 @@ The arithmetic is deliberate and disclosed: a pause drawn uniformly from 100–7
 
 **Cure.** The same `data-loaded` wait for a page's first render. For a render that follows a click there is a second wait, because `data-loaded` was already `"true"` before the click and waiting for it again can be satisfied by the render that came before: `BoardPage.toggle_first()` reads the `data-render` counter, clicks, and waits for `before + 1`, a value the page cannot already have had. `tests_after/test_ui.py::test_toggling_marks_the_task_done_and_offers_undo` uses it.
 
-**What it changed.** `tests_before/test_ui_before.py::test_board_lists_the_task` fails in 2 of 20 runs — the test in the "tests that fail some runs (flaky)" column, and the one that fails for this reason; in a series where the title collision of the *Brittle selector* section happens, that locator's timeout joins it there.
+**What it changed.** `tests_before/test_ui_before.py::test_board_lists_the_task` fails in 4 of 20 runs — the test in the "tests that fail some runs (flaky)" column, and the one that fails for this reason; in a series where the title collision of the *Brittle selector* section happens, that locator's timeout joins it there.
 
 ## Order dependence
 
@@ -60,7 +60,7 @@ E       IndexError: list index out of range
 
 **Cure.** Every cured test creates what it asserts on, in its own body, from fixtures that hand it a client and a title: `tests_after/test_api.py::test_toggling_marks_a_task_done_and_back` creates its task, toggles it twice, and asserts both states. Run it alone, first, or last and it behaves the same.
 
-**What it changed.** Two of the five in "tests that fail every run after the first": `tests_before/test_api_before.py::test_list_contains_created_task` fails in 19 of 20 runs, and `tests_before/test_api_before.py::test_toggle_marks_done` fails in 19 of 20 runs.
+**What it changed.** Two of the five in "tests that fail every run after the first": `tests_before/test_api_before.py::test_list_contains_created_task` fails in 20 of 20 runs, and `tests_before/test_api_before.py::test_toggle_marks_done` fails in 20 of 20 runs.
 
 ## Shared state
 
@@ -113,7 +113,7 @@ E       assert 409 == 201
 
 **Cure.** The `unique_title` fixture in `tests_after/conftest.py` returns `Write the report <8 hex characters>`, so no run can collide with an earlier one or with itself: `tests_after/test_api.py::test_a_task_can_be_created`. The store's rule is then worth a test of its own rather than an accident — `tests_after/test_api.py::test_a_duplicate_title_is_refused_with_409` creates the collision on purpose and asserts the 409.
 
-**What it changed.** `tests_before/test_api_before.py::test_create_task` fails in 19 of 20 runs. It is the head of the group the first run breaks: its failure leaves `created_ids` empty, which is what the two order-dependent tests then trip over.
+**What it changed.** `tests_before/test_api_before.py::test_create_task` fails in 20 of 20 runs — every run after the first, which took the title. It is the head of the group the first run breaks: its failure leaves `created_ids` empty, which is what the two order-dependent tests then trip over.
 
 ## No cleanup
 
@@ -129,7 +129,7 @@ E        +  where 3 = len([{'id': 1, 'title': 'Write the report', ...}, {'id': 2
 
 **Cure.** The autouse `clean_board` fixture posts `/api/reset` before every test, and the assertions stop counting: `tests_after/test_api.py::test_the_list_holds_exactly_what_this_test_created` compares the whole list with the one id it created, so a leftover would be named in the failure rather than summed into it. The cured suite also exercises the removal path it needs — `tests_after/test_api.py::test_deleting_removes_the_task`.
 
-**What it changed.** The other two of the five: `tests_before/test_api_before.py::test_board_has_exactly_one_task` fails in 19 of 20 runs, and `tests_before/test_ui_before.py::test_nothing_else_on_the_board` fails in 19 of 20 runs. Both pass in the first run and never again.
+**What it changed.** The other two of the five: `tests_before/test_api_before.py::test_board_has_exactly_one_task` fails in 20 of 20 runs, and `tests_before/test_ui_before.py::test_nothing_else_on_the_board` fails in 20 of 20 runs. Both pass in the first run and never again.
 
 ## Silent assert
 

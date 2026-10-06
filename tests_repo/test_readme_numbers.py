@@ -2,7 +2,7 @@
 
 The README's block — the table and the line saying on what machine, with what
 delay range and when the numbers were taken — is rendered from that file, and
-the per-test counts the diagnosis quotes ("fails in 19 of 20 runs") are read
+the per-test counts the diagnosis quotes ("fails in 20 of 20 runs") are read
 back out of it too, so a re-measurement that moves a number cannot leave a
 document behind.
 """
@@ -18,7 +18,7 @@ from tools.measure import END, START, render_block
 
 ROOT = Path(__file__).resolve().parents[1]
 
-#: `tests_before/test_api_before.py::test_create_task` … fails in 19 of 20 runs
+#: `tests_before/test_api_before.py::test_create_task` … fails in 20 of 20 runs
 CITATION = re.compile(r"`tests_before/(\w+)\.py::(test_\w+)`[^`]{0,240}?fails in (\d+) of (\d+) runs")
 #: "Four of the sick suite's tests never fail at all" — the number is checked
 NEVER_FAILS = re.compile(r"(\w+) of the sick suite's tests never fail at all")
@@ -50,6 +50,19 @@ def test_the_measurement_file_says_where_and_when_it_was_taken() -> None:
     assert payload.get("taken_on"), "a measurement must name the machine it was taken on, so the README can say it"
     after_failing_runs = payload["suites"]["after"]["failing_runs"]
     assert after_failing_runs == 0, "the cured suite is published only from a run where it never failed"
+
+
+def test_the_first_run_is_on_record_and_every_counted_sick_run_failed() -> None:
+    """The README says the sick suite fails all twenty runs it counts; the comparison holds a fresh series to that."""
+    payload = _payload()
+    assert set(payload.get("first_run_failed", {})) == {"before", "after"}, (
+        "a measurement must record what each suite's uncounted first run failed"
+    )
+    before = payload["suites"]["before"]
+    assert before["failing_runs"] == before["runs"], (
+        f"every counted run comes after the first and meets what it left behind, yet only "
+        f"{before['failing_runs']} of {before['runs']} failed — a disease of state is gone, or the method changed"
+    )
 
 
 def test_every_failure_count_the_diagnosis_cites_is_the_measured_one() -> None:
