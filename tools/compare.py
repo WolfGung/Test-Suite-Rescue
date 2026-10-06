@@ -9,10 +9,11 @@ change in the code could move, and prints the rest:
 - the tests that fail every run after the first — whether or not they also
   failed the first — must be the same tests, because that is state left
   behind, not luck;
-- the cured suite must fail exactly as many runs as the committed file says,
-  which is none; the sick suite may differ by one failing run — its first, the
-  only run of a series that luck decides, because every later run fails on the
-  state the first one left behind;
+- both suites must fail exactly as many runs as the committed file says: the
+  cured suite none, the sick suite every one. tools/measure.py counts only the
+  runs after a first run against the fresh board, and every one of those
+  fails on the state the first run left behind; the first run, the one luck
+  decides, is never counted, so there is no coin toss left in this number;
 - total times are printed with their change and never fail the comparison:
   GitHub's runners are not the same machine from one week to the next, and a
   single locator timeout in the sick suite adds thirty seconds on its own.
@@ -28,9 +29,6 @@ import json
 import os
 import sys
 from pathlib import Path
-
-#: How many failing runs a fresh series may differ from the committed one by.
-FAILING_RUNS_SLACK = {"before": 1, "after": 0}
 
 HEADER = (
     "Suite", "Runs", "Tests per run", "Failing runs", "Fail every run after the first", "Flaky tests", "Total time",
@@ -60,11 +58,10 @@ def compare_suite(suite: str, old: dict, new: dict) -> list[str]:
             f"{suite}: tests failing every run after the first differ — committed only "
             f"{sorted(old_stuck - new_stuck)}, fresh only {sorted(new_stuck - old_stuck)}"
         )
-    slack = FAILING_RUNS_SLACK[suite]
-    if abs(old["failing_runs"] - new["failing_runs"]) > slack:
+    if old["failing_runs"] != new["failing_runs"]:
         problems.append(
             f"{suite}: {new['failing_runs']} of {new['runs']} runs failed, the committed file says "
-            f"{old['failing_runs']} of {old['runs']}; the rules allow a difference of {slack}"
+            f"{old['failing_runs']} of {old['runs']}"
         )
     return problems
 
@@ -84,7 +81,7 @@ def report_rows(committed: dict, fresh: dict) -> list[tuple[str, ...]]:
             suite,
             f"{old['runs']} → {new['runs']}",
             f"{old['tests_per_run']} → {new['tests_per_run']}",
-            f"{old['failing_runs']} → {new['failing_runs']} (±{FAILING_RUNS_SLACK[suite]})",
+            f"{old['failing_runs']} → {new['failing_runs']}",
             f"{len(_fail_every_run_after_the_first(old))} → {len(_fail_every_run_after_the_first(new))}",
             f"{len(old['flaky'])} → {len(new['flaky'])} (reported only)",
             f"{old['total_seconds']} s → {new['total_seconds']} s, "

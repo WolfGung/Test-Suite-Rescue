@@ -20,7 +20,7 @@ STUCK = ["m::board", "m::count", "m::create", "m::list", "m::toggle"]
 
 
 def _sick(**changes: object) -> dict:
-    """The sick suite as the committed file has it: five tests stuck after the first run, one flaky."""
+    """The sick suite as the committed file has it: five tests stuck after the first run, one flaky, every run red."""
     suite = {
         "runs": 20,
         "tests_per_run": 7,
@@ -29,7 +29,7 @@ def _sick(**changes: object) -> dict:
         "always_failing": [],
         "broken_after_first_run": STUCK,
         "flaky": ["m::race"],
-        "failure_counts": {**dict.fromkeys(STUCK, 19), "m::race": 2, "m::health": 0},
+        "failure_counts": {**dict.fromkeys(STUCK, 20), "m::race": 2, "m::health": 0},
     }
     return {**suite, **changes}
 
@@ -69,14 +69,8 @@ def test_a_slower_runner_is_reported_and_never_refused(tmp_path: Path, capsys: p
     assert "118.9 s → 300.0 s, +152 % (reported only)" in out, out
 
 
-def test_a_sick_series_whose_first_run_got_lucky_is_accepted(tmp_path: Path) -> None:
-    """The first run is the only one luck decides: 19 failing runs of 20 against a committed 20 is the same suite."""
-    fresh = _sick(failing_runs=19, flaky=[], failure_counts={**dict.fromkeys(STUCK, 19), "m::race": 0, "m::health": 0})
-    assert main(_files(tmp_path, fresh, _cured())) == 0
-
-
 def test_a_stuck_test_that_also_lost_the_first_run_is_still_the_same_test(tmp_path: Path) -> None:
-    """A render race in run 1 moves a test from 'fails every run after the first' to 'fails every run'."""
+    """A render race in the first run moves a test from 'fails every run after the first' to 'fails every run'."""
     fresh = _sick(always_failing=["m::board"], broken_after_first_run=STUCK[1:])
     assert main(_files(tmp_path, fresh, _cured())) == 0
 
@@ -93,10 +87,15 @@ def test_one_failing_run_of_the_cured_suite_is_refused(tmp_path: Path, capsys: p
     assert "after: 1 of 20 runs failed" in capsys.readouterr().err
 
 
-def test_a_sick_suite_that_fails_two_runs_fewer_is_refused(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
-    """Every run after the first fails on purpose; luck can spare the first run, never a second one."""
-    assert main(_files(tmp_path, _sick(failing_runs=18), _cured())) == 1
-    assert "before: 18 of 20 runs failed" in capsys.readouterr().err
+def test_a_sick_suite_that_fails_one_run_fewer_is_refused(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    """Every counted run comes after the first and fails on what it left behind; a run that passes is a cured disease.
+
+    The first run, the one luck decides, is never among the counted runs, so a
+    series cannot lose one failing run by chance and nothing is waved through.
+    """
+    assert main(_files(tmp_path, _sick(failing_runs=19), _cured())) == 1
+    err = capsys.readouterr().err
+    assert "before: 19 of 20 runs failed, the committed file says 20 of 20" in err, err
 
 
 def test_a_test_that_stops_failing_after_the_first_run_is_refused(
@@ -144,5 +143,5 @@ def test_on_github_the_comparison_lands_on_the_run_page_as_a_table(
     assert main(_files(tmp_path, _sick(total_seconds=176.3), _cured())) == 0
     text = summary.read_text(encoding="utf-8")
     assert "| Suite | Runs | Tests per run | Failing runs |" in text, text
-    assert "| before | 20 → 20 | 7 → 7 | 20 → 20 (±1) | 5 → 5 |" in text, text
+    assert "| before | 20 → 20 | 7 → 7 | 20 → 20 | 5 → 5 |" in text, text
     assert "agrees with the committed one" in text, text
